@@ -778,7 +778,7 @@ function CreateTicketTab() {
               <Input placeholder="Số điện thoại hoặc email liên hệ để được hỗ trợ kịp thời" />
             </Form.Item>
             <Form.Item
-              label="Nội dung yêu cầu"
+              label="Nội dung yêu cầu (* Gửi thêm Ultraview nếu cần hỗ trợ từ xa)"
               name="content"
               rules={[
                 { required: true, message: "Vui lòng nhập nội dung yêu cầu" },
@@ -959,21 +959,51 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   // }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab !== "all") return; // Không chạy khi tab chưa active
+    // Nếu tab chưa active thì không chạy polling
+    if (activeTab !== "all") return;
 
-    fetchData(pagination.current, pagination.pageSize);
+    let isActive = true;
+    let timer: NodeJS.Timeout;
 
-    const interval = setInterval(() => {
-      fetchData(pagination.current, pagination.pageSize);
-    }, 5000);
+    const fetchLoop = async () => {
+      const filterObj: any = {};
 
-    return () => clearInterval(interval);
-  }, [activeTab, pagination.current, pagination.pageSize]);
+      if (searchText) filterObj.keyword = searchText;
+      if (dateRange && dateRange.length === 2) {
+        filterObj.fromDate = dateRange[0].format("YYYY-MM-DD");
+        filterObj.toDate = dateRange[1].format("YYYY-MM-DD");
+      }
+      if (status !== "all") filterObj.status = status;
+      if (type !== "all") filterObj.type = type;
+
+      await fetchData(pagination.current, pagination.pageSize, filterObj);
+
+      if (isActive) {
+        timer = setTimeout(fetchLoop, 30000); // Gọi lại sau 30s
+      }
+    };
+
+    fetchLoop(); // Gọi lần đầu
+
+    return () => {
+      isActive = false;
+      if (timer) clearTimeout(timer); // Dọn dẹp timeout
+    };
+  }, [
+    activeTab, // tab hiện tại
+    searchText,
+    dateRange,
+    status,
+    type,
+    pagination.current,
+    pagination.pageSize,
+  ]);
 
   // Tiếp nhận xử lý
   const handleProcess = (record: any) => {
     setProcessModal({ open: true, record });
   };
+
   // const handleProcessFinish = () => {
   //   setData((prev) =>
   //     prev.map((item) =>
@@ -1031,6 +1061,27 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       console.error("Lỗi hoàn tất ticket:", error);
       message.error("Không thể hoàn tất ticket. Vui lòng thử lại!");
     }
+  };
+
+  const handleFilter = () => {
+    const filterObj: any = {};
+
+    if (searchText) filterObj.keyword = searchText;
+    if (dateRange && dateRange.length === 2) {
+      filterObj.fromDate = dateRange[0].format("YYYY-MM-DD");
+      filterObj.toDate = dateRange[1].format("YYYY-MM-DD");
+    }
+    if (status !== "all") filterObj.status = status;
+    if (type !== "all") filterObj.type = type;
+    fetchData(1, pagination.pageSize, filterObj);
+  };
+  const handleClearFilter = () => {
+    setSearchText("");
+    setDateRange(null);
+    setStatus("all");
+    setType("all");
+    const filterObj: any = {};
+    fetchData(1, pagination.pageSize, filterObj);
   };
 
   const handleConfirmReset = async (record: any) => {
@@ -1249,28 +1300,6 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
         ),
     },
   ];
-
-  const handleFilter = () => {
-    console.log("Áp dụng bộ lọc với khoảng ngày:", dateRange);
-    const filterObj: any = {};
-
-    if (searchText) filterObj.search = searchText;
-    if (dateRange && dateRange.length === 2) {
-      filterObj.fromDate = dateRange[0].format("YYYY-MM-DD");
-      filterObj.toDate = dateRange[1].format("YYYY-MM-DD");
-    }
-    if (status !== "all") filterObj.ticketStatus = status;
-    if (type !== "all") filterObj.ticketType = type;
-    fetchData(1, pagination.pageSize, filterObj);
-  };
-  const handleClearFilter = () => {
-    setSearchText("");
-    setDateRange(null);
-    setStatus("all");
-    setType("all");
-    const filterObj: any = {};
-    fetchData(1, pagination.pageSize, filterObj);
-  };
 
   return (
     <div>

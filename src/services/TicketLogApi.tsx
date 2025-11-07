@@ -13,6 +13,7 @@ export const ticketLogApi = {
       keyword?: string;
       fromDate?: string; // yyyy-MM-dd
       toDate?: string; // yyyy-MM-dd
+      type?: string;
     } = {}
   ) => {
     const query = new URLSearchParams({
@@ -26,6 +27,7 @@ export const ticketLogApi = {
       ...(filters.fromDate && { fromDate: filters.fromDate }),
       ...(filters.toDate && { toDate: filters.toDate }),
       ...(filters.usercode && { usercode: filters.usercode }),
+      ...(filters.type && { type: filters.type }),
     }).toString();
     // return apiService.get(`/api/TicketLogs?${query}`);
     return apiService.get<PagedResponse<TicketLog>>(`/api/TicketLogs?${query}`);
