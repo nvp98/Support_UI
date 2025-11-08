@@ -816,12 +816,12 @@ function CreateTicketTab() {
                 onChange={handleUploadChange}
                 beforeUpload={() => false}
                 multiple
-                accept=".pdf,.doc,.docx,.jpg,.png,.gif"
+                // accept=".pdf,.doc,.docx,.jpg,.png,.gif,"
               >
                 <Button icon={<UploadOutlined />}>Choose Files</Button>
               </Upload>
               <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
-                Hỗ trợ file: PDF, DOC, DOCX, JPG, PNG, GIF (tối đa 10MB mỗi
+                Hỗ trợ file: PDF, DOC, DOCX, JPG, PNG, GIF,... (tối đa 10MB mỗi
                 file)
               </div>
             </Form.Item>
