@@ -14,6 +14,7 @@ export const ticketLogApi = {
       fromDate?: string; // yyyy-MM-dd
       toDate?: string; // yyyy-MM-dd
       type?: string;
+      userAssigneeCode?: string;
     } = {}
   ) => {
     const query = new URLSearchParams({
@@ -28,6 +29,9 @@ export const ticketLogApi = {
       ...(filters.toDate && { toDate: filters.toDate }),
       ...(filters.usercode && { usercode: filters.usercode }),
       ...(filters.type && { type: filters.type }),
+      ...(filters.userAssigneeCode && {
+        userAssigneeCode: filters.userAssigneeCode,
+      }),
     }).toString();
     // return apiService.get(`/api/TicketLogs?${query}`);
     return apiService.get<PagedResponse<TicketLog>>(`/api/TicketLogs?${query}`);

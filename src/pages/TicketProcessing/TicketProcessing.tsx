@@ -17,6 +17,7 @@ import {
   Popconfirm,
   Modal,
   Tooltip,
+  Checkbox,
 } from "antd";
 import {
   SearchOutlined,
@@ -931,6 +932,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
   const [note, setNote] = useState(""); // ✅ state để lưu nội dung ghi chú
+  const [onlyMyTicket, setOnlyMyTicket] = useState(false);
 
   const userStr = localStorage.getItem("user");
   const userObj = userStr ? JSON.parse(userStr) : {};
@@ -975,6 +977,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       }
       if (status !== "all") filterObj.status = status;
       if (type !== "all") filterObj.type = type;
+      if (onlyMyTicket) filterObj.userAssigneeCode = userObj?.maNV;
 
       await fetchData(pagination.current, pagination.pageSize, filterObj);
 
@@ -995,6 +998,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     dateRange,
     status,
     type,
+    onlyMyTicket,
     pagination.current,
     pagination.pageSize,
   ]);
@@ -1063,23 +1067,25 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     }
   };
 
-  const handleFilter = () => {
-    const filterObj: any = {};
+  // const handleFilter = () => {
+  //   const filterObj: any = {};
 
-    if (searchText) filterObj.keyword = searchText;
-    if (dateRange && dateRange.length === 2) {
-      filterObj.fromDate = dateRange[0].format("YYYY-MM-DD");
-      filterObj.toDate = dateRange[1].format("YYYY-MM-DD");
-    }
-    if (status !== "all") filterObj.status = status;
-    if (type !== "all") filterObj.type = type;
-    fetchData(1, pagination.pageSize, filterObj);
-  };
+  //   if (searchText) filterObj.keyword = searchText;
+  //   if (dateRange && dateRange.length === 2) {
+  //     filterObj.fromDate = dateRange[0].format("YYYY-MM-DD");
+  //     filterObj.toDate = dateRange[1].format("YYYY-MM-DD");
+  //   }
+  //   if (status !== "all") filterObj.status = status;
+  //   if (type !== "all") filterObj.type = type;
+  //   if (onlyMyTicket) filterObj.userAssigneeCode = userObj?.maNV;
+  //   fetchData(1, pagination.pageSize, filterObj);
+  // };
   const handleClearFilter = () => {
     setSearchText("");
     setDateRange(null);
     setStatus("all");
     setType("all");
+    setOnlyMyTicket(false);
     const filterObj: any = {};
     fetchData(1, pagination.pageSize, filterObj);
   };
@@ -1343,6 +1349,17 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
             </Select>
           </Col>
           <Col>
+            <Checkbox
+              checked={onlyMyTicket}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setOnlyMyTicket(checked);
+              }}
+            >
+              Ticket của tôi
+            </Checkbox>
+          </Col>
+          {/* <Col>
             <Button
               type="primary"
               icon={<SearchOutlined />}
@@ -1350,7 +1367,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
             >
               Lọc
             </Button>
-          </Col>
+          </Col> */}
           <Col>
             <Button onClick={handleClearFilter}>Xóa bộ lọc</Button>
           </Col>
@@ -1498,6 +1515,22 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                     __html: viewModal.record.ticketContent,
                   }}
                 />
+              </Col>
+              <Col span={24} style={{ marginTop: 8 }}>
+                <p>
+                  <strong>File đính kèm:</strong>{" "}
+                  {viewModal.record.fileUrl ? (
+                    <a
+                      href={viewModal.record.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Xem file đính kèm
+                    </a>
+                  ) : (
+                    ""
+                  )}
+                </p>
               </Col>
             </Row>
             <Row gutter={16} style={{ marginBottom: 16 }}>
