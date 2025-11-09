@@ -59,4 +59,10 @@ export const ticketLogApi = {
     apiService.put(`/api/TicketLogs/completed/${id}`, data, {
       headers: { "Content-Type": "application/json" },
     }),
+
+  // PUT: cập nhật hủy ticket
+  cancelTicket: (id: number, data: any) =>
+    apiService.put(`/api/TicketLogs/cancel/${id}`, data, {
+      headers: { "Content-Type": "application/json" },
+    }),
 };

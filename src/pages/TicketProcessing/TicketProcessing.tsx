@@ -84,6 +84,7 @@ const statusConfig: Record<string, { color: string; text: string }> = {
   0: { color: "purple", text: "Chờ tiếp nhận" },
   1: { color: "pink", text: "Đang xử lý" },
   2: { color: "green", text: "Hoàn tất" },
+  3: { color: "red", text: "Hủy" },
 };
 
 const typeConfig: Record<string, { color: string; text: string }> = {
@@ -106,6 +107,13 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
     pageSize: 10,
     total: 0,
   });
+  const [cancelModal, setCancelModal] = useState<{
+    open: boolean;
+    record?: any;
+  }>({
+    open: false,
+    record: undefined,
+  });
   const [editModal, setEditModal] = useState<{ open: boolean; record?: any }>({
     open: false,
     record: undefined,
@@ -116,7 +124,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
   });
   const [editForm] = Form.useForm();
   const editEditorRef = useRef<any>(null); // Ref for TinyMCE editor
-
+  const [note, setNote] = useState("");
   // Thêm state cho bộ lọc ngày
   const [dateRange, setDateRange] = useState<any>(null);
 
@@ -165,31 +173,58 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
     });
   };
 
-  const handleDelete = async (key: string) => {
+  // const handleDelete = async (key: string) => {
+  //   try {
+  //     setLoading(true);
+  //     // TODO: Gọi API xóa ticket khi API này được implement
+  //     // await ticketLogApi.deleteTicket(key);
+
+  //     // Mock xóa ticket
+  //     setTimeout(() => {
+  //       setData((prev) => prev.filter((item) => item.key !== key));
+  //       message.success("Đã xóa ticket!");
+  //     }, 500);
+
+  //     // Reload lại data từ server
+  //     await fetchData(pagination.current, pagination.pageSize, {
+  //       usercode: userObj?.maNV || "",
+  //     });
+  //   } catch (error) {
+  //     console.error("❌ Lỗi xóa ticket:", error);
+  //     message.error("Không thể xóa ticket. Vui lòng thử lại!");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+  const handleDelete = (record: any) => {
+    setCancelModal({ open: true, record });
+  };
+  const handleCancelFinish = async () => {
     try {
-      setLoading(true);
-      // TODO: Gọi API xóa ticket khi API này được implement
-      // await ticketLogApi.deleteTicket(key);
+      const record = cancelModal.record;
+      if (!note.trim()) {
+        message.error("Vui lòng nhập lý do hủy ticket!");
+        return;
+      }
 
-      // Mock xóa ticket
-      setTimeout(() => {
-        setData((prev) => prev.filter((item) => item.key !== key));
-        message.success("Đã xóa ticket!");
-      }, 500);
-
-      // Reload lại data từ server
-      await fetchData(pagination.current, pagination.pageSize, {
-        usercode: userObj?.maNV || "",
+      // ✅ Gọi API "Hoàn tất ticket"
+      await ticketLogApi.cancelTicket(record.ticketId, {
+        note: note || "Hủy!", // lấy từ input hoặc fallback
       });
-    } catch (error) {
-      console.error("❌ Lỗi xóa ticket:", error);
-      message.error("Không thể xóa ticket. Vui lòng thử lại!");
-    } finally {
-      setLoading(false);
+
+      setCancelModal({ open: false, record: undefined });
+      setNote("");
+      message.success("Ticket đã được hủy!");
+
+      // ✅ Reload lại data từ server để cập nhật đúng trạng thái và nút thao tác
+      await fetchData(pagination.current, pagination.pageSize, filters);
+    } catch (error: any) {
+      console.error("Lỗi hoàn tất ticket:", error);
+      message.error("Không thể hoàn tất ticket. Vui lòng thử lại!");
     }
   };
+
   const handleEdit = (record: any) => {
-    console.log("Edit record:", record);
     setEditModal({ open: true, record });
     editForm.setFieldsValue(record);
   };
@@ -228,17 +263,11 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
           {/* Chỉ hiển thị nút Xóa khi ticket chưa được tiếp nhận (status = 0) */}
           {record.ticketStatus === 0 && (
             <Tooltip title="Xóa ticket">
-              <Popconfirm
-                title="Bạn có chắc chắn muốn xóa ticket này?"
-                okText="Xóa"
-                cancelText="Hủy"
-                onConfirm={() => handleDelete(record.key)}
-              >
-                <Button
-                  type="text"
-                  icon={<DeleteTwoTone twoToneColor="#ff4d4f" />}
-                />
-              </Popconfirm>
+              <Button
+                type="text"
+                icon={<DeleteTwoTone twoToneColor="#ff4d4f" />}
+                onClick={() => handleDelete(record)}
+              />
             </Tooltip>
           )}
           <Tooltip title="Chỉnh sửa">
@@ -381,6 +410,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
               <Option value="0">Chờ tiếp nhận</Option>
               <Option value="1">Đang xử lý</Option>
               <Option value="2">Hoàn tất</Option>
+              <Option value="3">Hủy</Option>
             </Select>
           </Col>
           <Col xs={24} sm={12} md={4}>
@@ -644,6 +674,36 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
             )}
           </div>
         )}
+      </Modal>
+      <Modal
+        open={cancelModal.open}
+        title="Xác nhận hủy ticket"
+        onCancel={() => setCancelModal({ open: false, record: undefined })}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={() => setCancelModal({ open: false, record: undefined })}
+          >
+            Hủy
+          </Button>,
+          <Button key="ok" type="primary" onClick={handleCancelFinish}>
+            Xác nhận
+          </Button>,
+        ]}
+        destroyOnClose
+      >
+        {/* <p>Bạn có chắc chắn muốn hủy ticket này?</p> */}
+        <p>
+          <b>{cancelModal.record?.title}</b>
+        </p>
+        {/* ✅ Ô nhập ghi chú */}
+        <Input.TextArea
+          rows={3}
+          placeholder="Nhập ghi chú (bắt buộc)"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          required
+        />
       </Modal>
     </div>
   );
@@ -1338,6 +1398,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
               <Option value="0">Chờ tiếp nhận</Option>
               <Option value="1">Đang xử lý</Option>
               <Option value="2">Hoàn tất</Option>
+              <Option value="3">Hủy</Option>
             </Select>
           </Col>
           <Col xs={24} sm={12} md={4}>

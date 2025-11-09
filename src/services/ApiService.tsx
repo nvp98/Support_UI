@@ -82,7 +82,7 @@ export async function sendTeamsNotification(ticket: any) {
         targets: [
           {
             os: "default",
-            uri: "https://support.hoaphatdungquat.vn/tickets/TCK-2025-00123",
+            uri: "https://support.hoaphatdungquat.vn/ticket-processing",
           },
         ],
       },
