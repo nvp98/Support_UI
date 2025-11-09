@@ -3,6 +3,7 @@ import authReducer from "./authSlice";
 import notificationReducer from "./NotificationSlice";
 import loadingReducer from "./loadingSlice";
 import menuReducer from "./menuSlice";
+import ticketReducer from "./ticketSlice";
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     notification: notificationReducer,
     loading: loadingReducer,
     menu: menuReducer,
+    ticket: ticketReducer,
   },
 });
 

@@ -34,7 +34,7 @@ import {
   CloseCircleTwoTone,
 } from "@ant-design/icons";
 import { useEffect, useRef, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Editor } from "@tinymce/tinymce-react";
 
 // Core
@@ -61,6 +61,8 @@ import { ticketLogApi } from "../../services/TicketLogApi";
 import { buildFormData } from "../../utils/configs/buildFormData";
 import dayjs from "dayjs";
 import { UploadApi } from "../../services/UploadApi";
+import { setTicketFilter } from "../../store/ticketSlice";
+import type { RootState } from "../../store";
 // import type { TicketLog } from "../../models/ticketLog";
 
 const { Title } = Typography;
@@ -958,6 +960,7 @@ function CreateTicketTab() {
 }
 
 function AllTicketsTab({ activeTab }: { activeTab: string }) {
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<any>({});
   const [pagination, setPagination] = useState({
@@ -1038,6 +1041,8 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       if (status !== "all") filterObj.status = status;
       if (type !== "all") filterObj.type = type;
       if (onlyMyTicket) filterObj.userAssigneeCode = userObj?.maNV;
+      // 🟢 Lưu filter vào Redux để component cha dùng export
+      dispatch(setTicketFilter(filterObj));
 
       await fetchData(pagination.current, pagination.pageSize, filterObj);
 
@@ -1669,14 +1674,33 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
 
 const TicketProcessing = () => {
   const [activeTab, setActiveTab] = useState("all");
+  const ticketFilter = useSelector((state: RootState) => state.ticket);
   console.log("Active Tab:", activeTab);
 
   // Dummy export function
-  const handleExportExcel = () => {
-    // Thay bằng logic export thực tế của bạn
-    message.success("Xuất Excel thành công!");
-  };
+  const handleExportExcel = async () => {
+    try {
+      const response = await ticketLogApi.exportExcel(ticketFilter);
 
+      const blob = new Blob([response], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `TicketLogs_${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export Excel failed:", error);
+      message.error("Xuất file thất bại!");
+    }
+  };
   // Chuyển sang tab tạo ticket mới
   const handleCreateTicketClick = () => {
     setActiveTab("create");

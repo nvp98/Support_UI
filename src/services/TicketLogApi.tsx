@@ -65,4 +65,9 @@ export const ticketLogApi = {
     apiService.put(`/api/TicketLogs/cancel/${id}`, data, {
       headers: { "Content-Type": "application/json" },
     }),
+  exportExcel: (params?: Record<string, any>) =>
+    apiService.get(`/api/TicketLogs/export-excel`, {
+      params,
+      responseType: "blob", // Quan trọng: nhận file nhị phân
+    }),
 };
