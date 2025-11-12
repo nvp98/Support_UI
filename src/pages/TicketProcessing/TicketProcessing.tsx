@@ -855,7 +855,8 @@ function CreateTicketTab() {
                 onInit={(_evt, editor) => (editorRef.current = editor)}
                 init={{
                   height: 250,
-
+                  skin_url: "/tinymce/skins/ui/oxide",
+                  content_css: "/tinymce/skins/content/default/content.min.css",
                   language: "vi",
                   plugins: "link image table lists code",
                   toolbar:
