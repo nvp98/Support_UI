@@ -482,9 +482,9 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
           initialValues={editModal.record}
         >
           <Form.Item
-            label="Tiêu đề ticket"
+            label="Tiêu đề yêu cầu"
             name="ticketTitle"
-            rules={[{ required: true, message: "Nhập tiêu đề ticket" }]}
+            rules={[{ required: true, message: "Nhập tiêu đề" }]}
           >
             <Input />
           </Form.Item>
@@ -806,13 +806,11 @@ function CreateTicketTab() {
             <Row gutter={16}>
               <Col span={12} xs={24} sm={24} md={12}>
                 <Form.Item
-                  label="Tiêu đề ticket"
+                  label="Tiêu đề yêu cầu"
                   name="title"
-                  rules={[
-                    { required: true, message: "Vui lòng nhập tiêu đề ticket" },
-                  ]}
+                  rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}
                 >
-                  <Input placeholder="Nhập tiêu đề ticket" />
+                  <Input placeholder="Nhập tiêu đề" />
                 </Form.Item>
               </Col>
               <Col span={12} xs={24} sm={24} md={12}>
@@ -1713,7 +1711,7 @@ const TicketProcessing = () => {
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
           <Title level={2} style={{ margin: 0 }}>
-            Quản lý Ticket
+            Quản lý Yêu cầu hỗ trợ
           </Title>
         </Col>
         <Col>
@@ -1723,7 +1721,7 @@ const TicketProcessing = () => {
               icon={<PlusOutlined />}
               onClick={handleCreateTicketClick}
             >
-              Tạo ticket mới
+              Tạo yêu cầu mới
             </Button>
             <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
               Xuất Excel
@@ -1743,7 +1741,7 @@ const TicketProcessing = () => {
                 <span style={{ marginRight: 6 }}>
                   <i className="fa fa-list" />
                 </span>
-                Tất cả ticket
+                Tất cả yêu cầu
               </>
             ),
             children: <AllTicketsTab activeTab={activeTab} />,
@@ -1755,7 +1753,7 @@ const TicketProcessing = () => {
                 <span style={{ marginRight: 6 }}>
                   <i className="fa fa-user" />
                 </span>
-                Ticket của tôi
+                Yêu cầu của tôi
               </>
             ),
             children: <MyTicketsTab activeTab={activeTab} />,
@@ -1767,7 +1765,7 @@ const TicketProcessing = () => {
                 <span style={{ marginRight: 6 }}>
                   <i className="fa fa-plus-circle" />
                 </span>
-                Tạo ticket mới
+                Tạo yêu cầu mới
               </>
             ),
             children: <CreateTicketTab />,

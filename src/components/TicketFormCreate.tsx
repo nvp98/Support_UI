@@ -29,13 +29,11 @@ export default function TicketForm({
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 260 }}>
           <Form.Item
-            label="Tiêu đề ticket"
+            label="Tiêu đề yêu cầu"
             name="title"
-            rules={[
-              { required: true, message: "Vui lòng nhập tiêu đề ticket" },
-            ]}
+            rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}
           >
-            <Input placeholder="Nhập tiêu đề ticket" />
+            <Input placeholder="Nhập tiêu đề cần hỗ trợ" />
           </Form.Item>
         </div>
         <div style={{ flex: 1, minWidth: 260 }}>

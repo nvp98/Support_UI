@@ -25,7 +25,7 @@ export const menuConfig = [
     key: "2",
     icon: <FileTextOutlined />,
     path: "/ticket-processing",
-    label: <NavLink to="/ticket-processing">Quản lý ticket</NavLink>,
+    label: <NavLink to="/ticket-processing">Quản lý hỗ trợ</NavLink>,
     roles: ["user", "admin"], // cả 2 role đều thấy
   },
   {
