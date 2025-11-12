@@ -131,7 +131,7 @@ const LoginPage = () => {
               </Form.Item>
 
               <Form.Item
-                label="Mật khẩu"
+                label="Mật khẩu (*Time365 HPDQ)"
                 name="password"
                 rules={[{ required: true, message: "Vui lòng nhập mật khẩu!" }]}
               >

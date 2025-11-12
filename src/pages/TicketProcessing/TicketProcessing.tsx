@@ -61,7 +61,7 @@ import { ticketLogApi } from "../../services/TicketLogApi";
 import { buildFormData } from "../../utils/configs/buildFormData";
 import dayjs from "dayjs";
 import { UploadApi } from "../../services/UploadApi";
-import { setTicketFilter } from "../../store/ticketSlice";
+import { clearTicketFilter, setTicketFilter } from "../../store/ticketSlice";
 import type { RootState } from "../../store";
 // import type { TicketLog } from "../../models/ticketLog";
 
@@ -1029,23 +1029,23 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
 
     let isActive = true;
     let timer: NodeJS.Timeout;
+    const filterObj: any = {};
+
+    if (searchText) filterObj.keyword = searchText;
+    if (dateRange && dateRange.length === 2) {
+      filterObj.fromDate = dateRange[0].format("YYYY-MM-DD");
+      filterObj.toDate = dateRange[1].format("YYYY-MM-DD");
+    }
+    if (status !== "all") filterObj.status = status;
+    if (type !== "all") filterObj.type = type;
+    if (onlyMyTicket) filterObj.userAssigneeCode = userObj?.maNV;
+    // Lưu filter vào Redux để component cha dùng export
+    if (filterObj && Object.keys(filterObj).length > 0)
+      dispatch(setTicketFilter(filterObj));
+    else dispatch(clearTicketFilter());
 
     const fetchLoop = async () => {
-      const filterObj: any = {};
-
-      if (searchText) filterObj.keyword = searchText;
-      if (dateRange && dateRange.length === 2) {
-        filterObj.fromDate = dateRange[0].format("YYYY-MM-DD");
-        filterObj.toDate = dateRange[1].format("YYYY-MM-DD");
-      }
-      if (status !== "all") filterObj.status = status;
-      if (type !== "all") filterObj.type = type;
-      if (onlyMyTicket) filterObj.userAssigneeCode = userObj?.maNV;
-      // 🟢 Lưu filter vào Redux để component cha dùng export
-      dispatch(setTicketFilter(filterObj));
-
       await fetchData(pagination.current, pagination.pageSize, filterObj);
-
       if (isActive) {
         timer = setTimeout(fetchLoop, 30000); // Gọi lại sau 30s
       }
@@ -1152,6 +1152,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     setType("all");
     setOnlyMyTicket(false);
     const filterObj: any = {};
+    dispatch(clearTicketFilter());
     fetchData(1, pagination.pageSize, filterObj);
   };
 
