@@ -1675,8 +1675,9 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
 const TicketProcessing = () => {
   const [activeTab, setActiveTab] = useState("all");
   const ticketFilter = useSelector((state: RootState) => state.ticket);
-  console.log("Active Tab:", activeTab);
-
+  // console.log("Active Tab:", activeTab);
+  const userStr = localStorage.getItem("user");
+  const userObj = userStr ? JSON.parse(userStr) : {};
   // Dummy export function
   const handleExportExcel = async () => {
     try {
@@ -1723,9 +1724,11 @@ const TicketProcessing = () => {
             >
               Tạo yêu cầu mới
             </Button>
-            <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
-              Xuất Excel
-            </Button>
+            {userObj.role === "admin" && (
+              <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
+                Xuất Excel
+              </Button>
+            )}
           </Space>
         </Col>
       </Row>
