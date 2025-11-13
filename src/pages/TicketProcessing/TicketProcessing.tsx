@@ -876,7 +876,7 @@ function CreateTicketTab() {
                 fileList={fileList}
                 onChange={handleUploadChange}
                 beforeUpload={() => false}
-                multiple
+                // multiple
                 // accept=".pdf,.doc,.docx,.jpg,.png,.gif,"
               >
                 <Button icon={<UploadOutlined />}>Choose Files</Button>
