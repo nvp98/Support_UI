@@ -65,6 +65,10 @@ export const ticketLogApi = {
     apiService.put(`/api/TicketLogs/cancel/${id}`, data, {
       headers: { "Content-Type": "application/json" },
     }),
+  UpdateTicket: (id: number, data: any) =>
+    apiService.put(`/api/TicketLogs/${id}`, data, {
+      headers: { "Content-Type": "application/json" },
+    }),
   exportExcel: (params?: Record<string, any>) =>
     apiService.get(`/api/TicketLogs/export-excel`, {
       params,

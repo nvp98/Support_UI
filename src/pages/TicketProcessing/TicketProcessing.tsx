@@ -231,15 +231,32 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
     editForm.setFieldsValue(record);
   };
 
-  const handleEditFinish = (values: any) => {
-    setData((prev) =>
-      prev.map((item) =>
-        item.key === editModal.record.key ? { ...item, ...values } : item
-      )
-    );
-    setEditModal({ open: false, record: undefined });
-    console.log("Edited values:", values);
-    message.success("Đã cập nhật ticket!");
+  const handleEditFinish = async (values: any) => {
+    // setEditModal((prev) => ({
+    //   ...prev,
+    //   record: { ...prev.record, ...values },
+    // }));
+    // Gọi API cập nhật DB
+    const payload = {
+      ...editModal.record, // Lấy dữ liệu cũ (bao gồm id, user, v.v.)
+      ...values, // Gộp giá trị mới từ form
+    };
+    // 🔹 Gọi API cập nhật DB
+    const res = await ticketLogApi.UpdateTicket(payload.ticketId, payload);
+    if (res?.message) {
+      message.success(res?.message);
+      setEditModal({ open: false, record: undefined });
+      setData((prev) =>
+        prev.map((item) =>
+          item.key === editModal.record.key ? { ...item, ...values } : item
+        )
+      );
+    } else {
+      message.error("Cập nhật thất bại!");
+    }
+    // setEditModal({ open: false, record: undefined });
+    // console.log("Edited values:", editModal.record, payload);
+    // message.success("Đã cập nhật ticket!");
   };
 
   // Xem chi tiết ticket
@@ -262,23 +279,25 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
               onClick={() => handleView(record)}
             />
           </Tooltip>
-          {/* Chỉ hiển thị nút Xóa khi ticket chưa được tiếp nhận (status = 0) */}
+          {/* Chỉ hiển thị nút Xóa, edit khi ticket chưa được tiếp nhận (status = 0) */}
           {record.ticketStatus === 0 && (
-            <Tooltip title="Xóa ticket">
-              <Button
-                type="text"
-                icon={<DeleteTwoTone twoToneColor="#ff4d4f" />}
-                onClick={() => handleDelete(record)}
-              />
-            </Tooltip>
+            <>
+              <Tooltip title="Xóa ticket">
+                <Button
+                  type="text"
+                  icon={<DeleteTwoTone twoToneColor="#ff4d4f" />}
+                  onClick={() => handleDelete(record)}
+                />
+              </Tooltip>
+              <Tooltip title="Chỉnh sửa">
+                <Button
+                  type="text"
+                  icon={<EditTwoTone twoToneColor="#1890ff" />}
+                  onClick={() => handleEdit(record)}
+                />
+              </Tooltip>
+            </>
           )}
-          <Tooltip title="Chỉnh sửa">
-            <Button
-              type="text"
-              icon={<EditTwoTone twoToneColor="#1890ff" />}
-              onClick={() => handleEdit(record)}
-            />
-          </Tooltip>
         </Space>
       ),
     },
@@ -503,12 +522,26 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
             label="Nội dung yêu cầu"
             name="ticketContent"
             rules={[{ required: true, message: "Nhập nội dung yêu cầu" }]}
+            /* Nối Form <-> TinyMCE */
+            valuePropName="value" // Form sẽ inject prop "value" cho Editor
+            trigger="onEditorChange" // Form lắng nghe sự kiện onEditorChange
+            getValueFromEvent={(content) => content} // Lấy đúng chuỗi HTML
           >
             <Editor
               onInit={(_evt, editor) => (editEditorRef.current = editor)}
-              initialValue={editModal.record?.ticketContent}
+              // value={editModal.record?.ticketContent || ""}
+              // onEditorChange={(content) => {
+              //   // setEditModal((prev) => ({
+              //   //   ...prev,
+              //   //   record: { ...prev.record, ticketContent: content },
+              //   // }));
+              //   console.log("Content changed:", content);
+              //   editForm.setFieldsValue({ ticketContent: content });
+              // }}
               init={{
                 height: 250,
+                skin_url: "/tinymce/skins/ui/oxide",
+                content_css: "/tinymce/skins/content/default/content.min.css",
                 language: "vi",
                 plugins: "link image table lists code",
                 toolbar:
@@ -1196,12 +1229,14 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
 
         // Tất cả người dùng đều thấy nút View
         const buttons = [
-          <Button
-            key="view"
-            type="text"
-            icon={<EyeTwoTone twoToneColor="#1890ff" />}
-            onClick={() => handleView(record)}
-          />,
+          <Tooltip title="Xem chi tiết">
+            <Button
+              key="view"
+              type="text"
+              icon={<EyeTwoTone twoToneColor="#1890ff" />}
+              onClick={() => handleView(record)}
+            />
+          </Tooltip>,
         ];
 
         // Admin: nút Tiếp nhận và Hoàn tất
@@ -1239,12 +1274,14 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                 okText="Có"
                 cancelText="Không"
               >
-                <Button
-                  key="reset"
-                  type="text"
-                  icon={<CloseCircleTwoTone twoToneColor="#e60a02ff" />}
-                  // onClick={() => handleComplete(record)}
-                />
+                <Tooltip title="Hủy tiếp nhận ticket">
+                  <Button
+                    key="reset"
+                    type="text"
+                    icon={<CloseCircleTwoTone twoToneColor="#e60a02ff" />}
+                    // onClick={() => handleComplete(record)}
+                  />
+                </Tooltip>
               </Popconfirm>
             );
           }
