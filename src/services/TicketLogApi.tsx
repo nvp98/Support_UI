@@ -65,6 +65,7 @@ export const ticketLogApi = {
     apiService.put(`/api/TicketLogs/cancel/${id}`, data, {
       headers: { "Content-Type": "application/json" },
     }),
+  deleteTicket: (id: number) => apiService.delete(`/api/TicketLogs/${id}`),
   UpdateTicket: (id: number, data: any) =>
     apiService.put(`/api/TicketLogs/${id}`, data, {
       headers: { "Content-Type": "application/json" },

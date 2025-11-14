@@ -198,9 +198,35 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
   //     setLoading(false);
   //   }
   // };
-  const handleDelete = (record: any) => {
-    setCancelModal({ open: true, record });
+
+  //  const handleDelete = (record: any) => {
+  //   setCancelModal({ open: true, record });
+  // };
+  // thay handleDelete mở modal thành hàm xóa thực thi ngay
+  const handleDelete = async (record: any) => {
+    try {
+      setLoading(true);
+      // nếu API có deleteTicket dùng API, nếu không fallback xóa local
+      if (ticketLogApi.deleteTicket) {
+        await ticketLogApi.deleteTicket(record.ticketId);
+        message.success("Đã xóa ticket!");
+      } else {
+        // fallback: mock xóa
+        setData((prev) =>
+          prev.filter((item) => item.ticketId !== record.ticketId)
+        );
+        message.success("Đã xóa ticket (mock)!");
+      }
+      // reload dữ liệu
+      await fetchData(pagination.current, pagination.pageSize, filters);
+    } catch (error: any) {
+      console.error("Lỗi xóa ticket:", error);
+      message.error("Không thể xóa ticket. Vui lòng thử lại!");
+    } finally {
+      setLoading(false);
+    }
   };
+
   const handleCancelFinish = async () => {
     try {
       const record = cancelModal.record;
@@ -221,7 +247,6 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
       // ✅ Reload lại data từ server để cập nhật đúng trạng thái và nút thao tác
       await fetchData(pagination.current, pagination.pageSize, filters);
     } catch (error: any) {
-      console.error("Lỗi hoàn tất ticket:", error);
       message.error("Không thể hoàn tất ticket. Vui lòng thử lại!");
     }
   };
@@ -282,13 +307,19 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
           {/* Chỉ hiển thị nút Xóa, edit khi ticket chưa được tiếp nhận (status = 0) */}
           {record.ticketStatus === 0 && (
             <>
-              <Tooltip title="Xóa ticket">
-                <Button
-                  type="text"
-                  icon={<DeleteTwoTone twoToneColor="#ff4d4f" />}
-                  onClick={() => handleDelete(record)}
-                />
-              </Tooltip>
+              <Popconfirm
+                title="Bạn có muốn xóa ticket này?"
+                onConfirm={() => handleDelete(record)}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Tooltip title="Xóa ticket">
+                  <Button
+                    type="text"
+                    icon={<DeleteTwoTone twoToneColor="#ff4d4f" />}
+                  />
+                </Tooltip>
+              </Popconfirm>
               <Tooltip title="Chỉnh sửa">
                 <Button
                   type="text"
@@ -642,6 +673,25 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
               </Col>
             </Row>
             <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={24} style={{ marginTop: 8 }}>
+                <p>
+                  <strong>File đính kèm:</strong>{" "}
+                  {viewModal.record.fileUrl ? (
+                    <a
+                      href={viewModal.record.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: "#d21919ff", fontWeight: 500 }}
+                    >
+                      Xem file đính kèm
+                    </a>
+                  ) : (
+                    ""
+                  )}
+                </p>
+              </Col>
+            </Row>
+            <Row gutter={16} style={{ marginBottom: 16 }}>
               <Col span={12}>
                 <p>
                   <strong>Loại yêu cầu:</strong>{" "}
@@ -727,11 +777,9 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
         ]}
         destroyOnClose
       >
-        {/* <p>Bạn có chắc chắn muốn hủy ticket này?</p> */}
         <p>
-          <b>{cancelModal.record?.title}</b>
+          <b>{cancelModal.record?.title || cancelModal.record?.ticketTitle}</b>
         </p>
-        {/* ✅ Ô nhập ghi chú */}
         <Input.TextArea
           rows={3}
           placeholder="Nhập ghi chú (bắt buộc)"
@@ -1022,6 +1070,14 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     open: false,
     record: undefined,
   });
+  // Modal cho hành vi Xóa / Hủy ticket (giống MyTicketsTab)
+  const [cancelModal, setCancelModal] = useState<{
+    open: boolean;
+    record?: any;
+  }>({
+    open: false,
+    record: undefined,
+  });
   const [dateRange, setDateRange] = useState<any>(null);
   const [searchText, setSearchText] = useState("");
   const [status, setStatus] = useState("all");
@@ -1122,7 +1178,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       const record = processModal.record;
       // Gọi API "Tiếp nhận ticket"
       await ticketLogApi.receiveTicket(record.ticketId, {
-        userAssigneeCode: userObj?.maNV, // 👈 Lấy từ user đăng nhập hiện tại
+        userAssigneeCode: userObj?.maNV, // Lấy từ user đăng nhập hiện tại
         userAssigneeName: userObj?.hoTen,
         userAssigneeDepartment: userObj?.phongBan,
         note: "Đã tiếp nhận xử lý ticket",
@@ -1161,6 +1217,39 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     } catch (error: any) {
       console.error("Lỗi hoàn tất ticket:", error);
       message.error("Không thể hoàn tất ticket. Vui lòng thử lại!");
+    }
+  };
+
+  // Xóa / Hủy ticket (mở modal nhập lý do) - tương tự MyTicketsTab
+  const handleDelete = (record: any) => {
+    setCancelModal({ open: true, record });
+  };
+
+  const handleCancelFinish = async () => {
+    try {
+      const record = cancelModal.record;
+      if (!note.trim()) {
+        message.error("Vui lòng nhập lý do hủy ticket!");
+        return;
+      }
+
+      // Gọi API hủy ticket
+      await ticketLogApi.cancelTicket(record.ticketId, {
+        note: note || "Hủy!",
+        userAssigneeCode: userObj?.maNV || "",
+        userAssigneeName: userObj?.hoTen || "",
+        userAssigneeDepartment: userObj?.phongBan || "",
+      });
+
+      setCancelModal({ open: false, record: undefined });
+      setNote("");
+      message.success("Ticket đã được hủy!");
+
+      // Reload lại dữ liệu
+      await fetchData(pagination.current, pagination.pageSize, filters);
+    } catch (error: any) {
+      console.error("Lỗi hủy ticket:", error);
+      message.error("Không thể hủy ticket. Vui lòng thử lại!");
     }
   };
 
@@ -1226,6 +1315,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
         const isAssignee =
           record.ticketStatus === 1 &&
           userObj?.maNV === record.userAssigneeCode;
+        // const isOwner = userObj?.maNV === record.userCode;
 
         // Tất cả người dùng đều thấy nút View
         const buttons = [
@@ -1238,6 +1328,21 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
             />
           </Tooltip>,
         ];
+
+        // Thêm nút Xóa (chức năng giống MyTicketsTab) - chỉ khi chưa tiếp nhận (ticketStatus === 0)
+        // Cho phép user chủ ticket xóa
+        if (record.ticketStatus === 0 && isAdmin) {
+          buttons.push(
+            <Tooltip title="Xóa ticket">
+              <Button
+                key="delete"
+                type="text"
+                icon={<DeleteTwoTone twoToneColor="#ff4d4f" />}
+                onClick={() => handleDelete(record)}
+              />
+            </Tooltip>
+          );
+        }
 
         // Admin: nút Tiếp nhận và Hoàn tất
         if (isAdmin) {
@@ -1559,6 +1664,35 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
           onChange={(e) => setNote(e.target.value)}
         />
       </Modal>
+      {/* Modal Xóa / Hủy ticket (dùng chung như MyTicketsTab) */}
+      <Modal
+        open={cancelModal.open}
+        title="Xác nhận hủy ticket"
+        onCancel={() => setCancelModal({ open: false, record: undefined })}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={() => setCancelModal({ open: false, record: undefined })}
+          >
+            Hủy
+          </Button>,
+          <Button key="ok" type="primary" onClick={handleCancelFinish}>
+            Xác nhận
+          </Button>,
+        ]}
+        destroyOnClose
+      >
+        <p>
+          {/* <b>{cancelModal.record?.title || cancelModal.record?.ticketTitle}</b> */}
+        </p>
+        <Input.TextArea
+          rows={3}
+          placeholder="Nhập ghi chú (bắt buộc)"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          required
+        />
+      </Modal>
       <Modal
         open={viewModal.open}
         title="Chi tiết ticket"
@@ -1627,6 +1761,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                       href={viewModal.record.fileUrl}
                       target="_blank"
                       rel="noreferrer"
+                      style={{ color: "#d21919ff", fontWeight: 500 }}
                     >
                       Xem file đính kèm
                     </a>
