@@ -213,7 +213,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
       } else {
         // fallback: mock xóa
         setData((prev) =>
-          prev.filter((item) => item.ticketId !== record.ticketId)
+          prev.filter((item) => item.ticketId !== record.ticketId),
         );
         message.success("Đã xóa ticket (mock)!");
       }
@@ -273,8 +273,8 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
       setEditModal({ open: false, record: undefined });
       setData((prev) =>
         prev.map((item) =>
-          item.key === editModal.record.key ? { ...item, ...values } : item
-        )
+          item.key === editModal.record.key ? { ...item, ...values } : item,
+        ),
       );
     } else {
       message.error("Cập nhật thất bại!");
@@ -705,7 +705,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
                   <strong>Ngày tạo:</strong>{" "}
                   {viewModal.record.createdAt
                     ? dayjs(viewModal.record.createdAt).format(
-                        "DD/MM/YYYY HH:mm"
+                        "DD/MM/YYYY HH:mm",
                       )
                     : "-"}
                 </p>
@@ -859,7 +859,7 @@ function CreateTicketTab() {
             department: `${res.data.userDepartment}` || "",
             status: res.data.ticketStatus === 0 ? "Chờ xử lý" : "",
             createdAt: res.data.createdAt || "",
-          })
+          }),
         )
           .then(() => console.log("Đã gửi thông báo Teams "))
           .catch((err) => console.error(" Gửi Teams thất bại:", err));
@@ -1340,7 +1340,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                 icon={<DeleteTwoTone twoToneColor="#ff4d4f" />}
                 onClick={() => handleDelete(record)}
               />
-            </Tooltip>
+            </Tooltip>,
           );
         }
 
@@ -1356,7 +1356,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                   icon={<PlusSquareTwoTone twoToneColor="#1890ff" />}
                   onClick={() => handleProcess(record)}
                 />
-              </Tooltip>
+              </Tooltip>,
             );
           }
           // Nút Hoàn tất - chỉ hiển thị nếu admin đó là người đã tiếp nhận
@@ -1369,7 +1369,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                   icon={<CheckCircleTwoTone twoToneColor="#52c41a" />}
                   onClick={() => handleComplete(record)}
                 />
-              </Tooltip>
+              </Tooltip>,
             );
             buttons.push(
               <Popconfirm
@@ -1387,7 +1387,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                     // onClick={() => handleComplete(record)}
                   />
                 </Tooltip>
-              </Popconfirm>
+              </Popconfirm>,
             );
           }
         }
@@ -1400,7 +1400,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
               type="text"
               icon={<CheckCircleTwoTone twoToneColor="#52c41a" />}
               onClick={() => handleComplete(record)}
-            />
+            />,
           );
         }
 
@@ -1785,7 +1785,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                   <strong>Ngày tạo:</strong>{" "}
                   {viewModal.record.createdAt
                     ? dayjs(viewModal.record.createdAt).format(
-                        "DD/MM/YYYY HH:mm"
+                        "DD/MM/YYYY HH:mm",
                       )
                     : "-"}
                 </p>
@@ -1794,7 +1794,8 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
             <Row gutter={16} style={{ marginBottom: 16 }}>
               <Col span={12}>
                 <p>
-                  <strong>Người yêu cầu:</strong> {viewModal.record.userName}
+                  <strong>Người yêu cầu:</strong> {viewModal.record.userCode} -{" "}
+                  {viewModal.record.userName}
                 </p>
               </Col>
               <Col span={12}>
