@@ -1847,10 +1847,133 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
 
 const TicketProcessing = () => {
   const [activeTab, setActiveTab] = useState("all");
+  const [todaySupportSummary, setTodaySupportSummary] = useState<
+    Array<{ code: string; name: string; count: number }>
+  >([]);
+  // const [todayWaitingCount, setTodayWaitingCount] = useState(0);
+  // const [todayCreatedCount, setTodayCreatedCount] = useState(0);
+  const [todayWaitingByType, setTodayWaitingByType] = useState<
+    Record<string, number>
+  >({ SOFT: 0, HARD: 0, SAP: 0 });
+  const [todayCreatedByType, setTodayCreatedByType] = useState<
+    Record<string, number>
+  >({ SOFT: 0, HARD: 0, SAP: 0 });
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const ticketFilter = useSelector((state: RootState) => state.ticket);
   // console.log("Active Tab:", activeTab);
   const userStr = localStorage.getItem("user");
   const userObj = userStr ? JSON.parse(userStr) : {};
+
+  const fetchTodaySupportSummary = async () => {
+    setSummaryLoading(true);
+    try {
+      const today = dayjs()
+        .subtract(1, "month")
+        .startOf("month")
+        .format("YYYY-MM-DD");
+      const denngay = dayjs().add(1, "day").format("YYYY-MM-DD");
+      const firstPage = await ticketLogApi.getTickets(1, 200, {
+        fromDate: today,
+        toDate: denngay,
+      });
+
+      let allItems = [...(firstPage.items || [])];
+      for (let page = 2; page <= (firstPage.totalPages || 1); page += 1) {
+        const nextPage = await ticketLogApi.getTickets(page, 200, {
+          fromDate: today,
+          toDate: denngay,
+        });
+        allItems = allItems.concat(nextPage.items || []);
+      }
+
+      const now = dayjs();
+      const createdToday = allItems.filter((ticket: any) =>
+        ticket?.createdAt ? dayjs(ticket.createdAt).isSame(now, "day") : false,
+      );
+      const waitingToday = allItems.filter(
+        (ticket: any) => Number(ticket?.ticketStatus) === 1,
+      );
+
+      const waitingByType = waitingToday.reduce(
+        (acc: Record<string, number>, ticket: any) => {
+          const ticketType = ticket?.ticketType;
+          if (ticketType && acc[ticketType] !== undefined) {
+            acc[ticketType] += 1;
+          }
+          return acc;
+        },
+        { SOFT: 0, HARD: 0, SAP: 0 },
+      );
+
+      const createdByType = createdToday.reduce(
+        (acc: Record<string, number>, ticket: any) => {
+          const ticketType = ticket?.ticketType;
+          if (ticketType && acc[ticketType] !== undefined) {
+            acc[ticketType] += 1;
+          }
+          return acc;
+        },
+        { SOFT: 0, HARD: 0, SAP: 0 },
+      );
+
+      // const waitingCount = waitingToday.length;
+      // const createdCount = createdToday.length;
+
+      // setTodayWaitingCount(waitingCount);
+      // setTodayCreatedCount(createdCount);
+      setTodayWaitingByType(waitingByType);
+      setTodayCreatedByType(createdByType);
+
+      const summaryMap = new Map<
+        string,
+        { code: string; name: string; count: number }
+      >();
+
+      allItems
+        .filter((x) => x.ticketStatus === 1)
+        .forEach((ticket: any) => {
+          const hasAssignee = !!ticket?.userAssigneeCode;
+          // const isReceivedToday = ticket?.receivedAt
+          //   ? dayjs(ticket.receivedAt).isSame(dayjs(), "day")
+          //   : false;
+
+          if (!hasAssignee) return;
+
+          const code = ticket.userAssigneeCode;
+          const name = ticket.userAssigneeName || "Chưa rõ";
+          const key = `${code}-${name}`;
+
+          if (!summaryMap.has(key)) {
+            summaryMap.set(key, { code, name, count: 0 });
+          }
+          const current = summaryMap.get(key)!;
+          current.count += 1;
+        });
+
+      const summaryList = Array.from(summaryMap.values()).sort(
+        (a, b) => b.count - a.count,
+      );
+      setTodaySupportSummary(summaryList);
+    } catch (error) {
+      console.error("Error fetch today support summary:", error);
+      setTodaySupportSummary([]);
+      // setTodayWaitingCount(0);
+      // setTodayCreatedCount(0);
+      setTodayWaitingByType({ SOFT: 0, HARD: 0, SAP: 0 });
+      setTodayCreatedByType({ SOFT: 0, HARD: 0, SAP: 0 });
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodaySupportSummary();
+    const timer = setInterval(() => {
+      fetchTodaySupportSummary();
+    }, 30000);
+
+    return () => clearInterval(timer);
+  }, []);
   // Dummy export function
   const handleExportExcel = async () => {
     try {
@@ -1905,6 +2028,85 @@ const TicketProcessing = () => {
           </Space>
         </Col>
       </Row>
+
+      <Card
+        loading={summaryLoading}
+        title="Tổng quan hỗ trợ"
+        style={{ marginBottom: 16 }}
+      >
+        {/* <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+          <Col>
+            <Tag color="gold">
+              Chờ tiếp nhận xử lý: <b>{todayWaitingCount}</b>
+            </Tag>
+          </Col>
+          <Col>
+            <Tag color="geekblue">
+              Ticket đã được tạo: <b>{todayCreatedCount}</b>
+            </Tag>
+          </Col>
+        </Row> */}
+
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          <Col xs={24} md={12}>
+            <div style={{ fontWeight: 500, marginBottom: 6 }}>Đang xử lý</div>
+            {Object.entries(todayWaitingByType).map(([type, count]) => (
+              <Tag
+                key={`waiting-${type}`}
+                color={typeConfig[type]?.color || "default"}
+              >
+                {typeConfig[type]?.text || type}: {count}
+              </Tag>
+            ))}
+          </Col>
+          <Col xs={24} md={12}>
+            <div style={{ fontWeight: 500, marginBottom: 6 }}>
+              Ticket được tạo trong ngày
+            </div>
+            {Object.entries(todayCreatedByType).map(([type, count]) => (
+              <Tag
+                key={`created-${type}`}
+                color={typeConfig[type]?.color || "default"}
+              >
+                {typeConfig[type]?.text || type}: {count}
+              </Tag>
+            ))}
+          </Col>
+        </Row>
+
+        {todaySupportSummary.length > 0 ? (
+          <Row gutter={[12, 12]}>
+            {todaySupportSummary.map((item) => (
+              <Col
+                xs={24}
+                sm={12}
+                md={8}
+                lg={3}
+                key={`${item.code}-${item.name}`}
+              >
+                <div
+                  style={{
+                    border: "1px solid #f0f0f0",
+                    borderRadius: 8,
+                    padding: 12,
+                    background: "#fafafa",
+                  }}
+                >
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                    {item.code} - <br /> {item.name}
+                  </div>
+                  <Tag color="red">{item.count} yêu cầu đang xử lý</Tag>
+                </div>
+              </Col>
+            ))}
+          </Row>
+        ) : (
+          <span style={{ color: "#888" }}>
+            Chưa có nhân viên nào tiếp nhận ticket trong ngày.
+          </span>
+        )}
+      </Card>
+
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
