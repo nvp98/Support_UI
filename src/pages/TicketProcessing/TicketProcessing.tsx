@@ -4,11 +4,13 @@ import {
   Button,
   Space,
   Tag,
+  Avatar,
+  Badge,
   Input,
   Select,
   Row,
   Col,
-  Typography,
+  // Typography,
   Tabs,
   Form,
   Upload,
@@ -23,6 +25,7 @@ import {
   SearchOutlined,
   FileExcelOutlined,
   PlusOutlined,
+  PlusCircleOutlined,
   UploadOutlined,
   InfoCircleOutlined,
   ClockCircleOutlined,
@@ -32,8 +35,19 @@ import {
   EditTwoTone,
   EyeTwoTone,
   CloseCircleTwoTone,
+  CodeOutlined,
+  DesktopOutlined,
+  DatabaseOutlined,
+  Loading3QuartersOutlined,
+  CheckCircleFilled,
+  UserOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  MailOutlined,
+  IdcardOutlined,
+  HomeOutlined,
 } from "@ant-design/icons";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Editor } from "@tinymce/tinymce-react";
 
@@ -63,9 +77,10 @@ import dayjs from "dayjs";
 import { UploadApi } from "../../services/UploadApi";
 import { clearTicketFilter, setTicketFilter } from "../../store/ticketSlice";
 import type { RootState } from "../../store";
+import supportStaffData from "../../utils/configs/json_info_user.json";
 // import type { TicketLog } from "../../models/ticketLog";
 
-const { Title } = Typography;
+// const { Title } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
@@ -89,10 +104,146 @@ const statusConfig: Record<string, { color: string; text: string }> = {
   3: { color: "red", text: "Hủy" },
 };
 
+const renderTicketStatusIcon = (status: string | number) => {
+  const statusKey = String(status);
+  const config = statusConfig[statusKey] || { text: statusKey };
+
+  let iconNode: ReactNode = <Tag color="default">?</Tag>;
+
+  if (statusKey === "0") {
+    iconNode = (
+      <ClockCircleOutlined style={{ color: "#722ed1", fontSize: 16 }} />
+    );
+  } else if (statusKey === "1") {
+    iconNode = (
+      <Loading3QuartersOutlined
+        spin
+        style={{ color: "#eb2f96", fontSize: 16 }}
+      />
+    );
+  } else if (statusKey === "2") {
+    iconNode = (
+      <CheckCircleTwoTone twoToneColor="#52c41a" style={{ fontSize: 17 }} />
+    );
+  } else if (statusKey === "3") {
+    iconNode = (
+      <CloseCircleTwoTone twoToneColor="#ff4d4f" style={{ fontSize: 17 }} />
+    );
+  }
+
+  return (
+    <Tooltip title={config.text}>
+      <span
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: "50%",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#fafafa",
+          border: "1px solid #f0f0f0",
+        }}
+      >
+        {iconNode}
+      </span>
+    </Tooltip>
+  );
+};
+
 const typeConfig: Record<string, { color: string; text: string }> = {
   SOFT: { color: "red", text: "Hỗ trợ phần mềm" },
   HARD: { color: "orange", text: "Hỗ trợ phần cứng" },
   SAP: { color: "cyan", text: "SAP" },
+};
+
+const supportGroupConfig: Record<
+  string,
+  { color: string; text: string; icon: React.ReactNode; bgColor: string }
+> = {
+  SOFT: {
+    color: "geekblue",
+    text: "Hỗ trợ phần mềm",
+    icon: <CodeOutlined />,
+    bgColor: "#f0f5ff",
+  },
+  HARD: {
+    color: "orange",
+    text: "Hỗ trợ phần cứng",
+    icon: <DesktopOutlined />,
+    bgColor: "#fff7e6",
+  },
+  SAP: {
+    color: "purple",
+    text: "SAP",
+    icon: <DatabaseOutlined />,
+    bgColor: "#f9f0ff",
+  },
+};
+
+const supportInfoByCode = new Map<
+  string,
+  { name: string; email?: string; chucVu?: string; phongBan?: string }
+>();
+const supportEmailByName = new Map<string, string>();
+
+(supportStaffData.supportStaff || []).forEach((staff: any) => {
+  supportInfoByCode.set(staff.maNhanVien, {
+    name: staff.hoTen,
+    email: staff.email,
+    chucVu: staff.chucVu,
+    phongBan: staff.phongBan,
+  });
+  if (staff.hoTen && staff.email) {
+    supportEmailByName.set(staff.hoTen, staff.email);
+  }
+});
+
+const renderSupportAssignee = (record: any) => {
+  const assigneeName = record?.userAssigneeName;
+  const assigneeCode = record?.userAssigneeCode;
+
+  if (!assigneeName) {
+    return <span style={{ color: "#aaa" }}>-</span>;
+  }
+
+  const emailFromCode = assigneeCode
+    ? supportInfoByCode.get(assigneeCode)?.email
+    : undefined;
+  const email = emailFromCode || supportEmailByName.get(assigneeName);
+  const chucVu = assigneeCode
+    ? supportInfoByCode.get(assigneeCode)?.chucVu
+    : undefined;
+  const phongBan = assigneeCode
+    ? supportInfoByCode.get(assigneeCode)?.phongBan
+    : undefined;
+
+  if (!email) {
+    return assigneeName;
+  }
+
+  return (
+    <Tooltip
+      title={
+        <div style={{ lineHeight: 1.8, width: 500 }}>
+          <div>
+            <UserOutlined /> {assigneeName}
+          </div>
+          <div>
+            <MailOutlined /> {email}
+          </div>
+          <div>
+            <IdcardOutlined /> {chucVu}
+          </div>
+          <div>
+            <HomeOutlined /> {phongBan}
+          </div>
+        </div>
+      }
+    >
+      <span>{assigneeName}</span>
+    </Tooltip>
+  );
 };
 
 // const departmentConfig: Record<string, { color: string; text: string }> = {
@@ -124,9 +275,17 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
     open: false,
     record: undefined,
   });
+  const [addNoteModal, setAddNoteModal] = useState<{
+    open: boolean;
+    record?: any;
+  }>({
+    open: false,
+    record: undefined,
+  });
   const [editForm] = Form.useForm();
   const editEditorRef = useRef<any>(null); // Ref for TinyMCE editor
   const [note, setNote] = useState("");
+  const [additionalNote, setAdditionalNote] = useState("");
   // Thêm state cho bộ lọc ngày
   const [dateRange, setDateRange] = useState<any>(null);
 
@@ -135,6 +294,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
   const fetchData = async (page = 1, pageSize = 10, filters = {}) => {
     setLoading(true);
     try {
+      console.log("Fetching tickets with filters:", filters);
       const res = await ticketLogApi.getTickets(page, pageSize, filters);
       setData(res.items);
       setPagination({
@@ -237,7 +397,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
 
       // ✅ Gọi API "Hoàn tất ticket"
       await ticketLogApi.cancelTicket(record.ticketId, {
-        note: note || "Hủy!", // lấy từ input hoặc fallback
+        note: note.trim() || "Hủy!", // lấy từ input hoặc fallback
       });
 
       setCancelModal({ open: false, record: undefined });
@@ -287,6 +447,46 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
   // Xem chi tiết ticket
   const handleView = (record: any) => {
     setViewModal({ open: true, record });
+  };
+
+  const handleOpenAddNote = (record: any) => {
+    setAdditionalNote("");
+    setAddNoteModal({ open: true, record });
+  };
+
+  const handleAddNoteFinish = async () => {
+    try {
+      const record = addNoteModal.record;
+      if (!additionalNote.trim()) {
+        message.error("Vui lòng nhập nội dung ghi chú!");
+        return;
+      }
+
+      const latestNote = additionalNote.trim();
+
+      const res = await ticketLogApi.UpdateTicket(record.ticketId, {
+        ...record,
+        note: latestNote,
+      });
+
+      if (res?.message) {
+        message.success(res.message);
+        setData((prev) =>
+          prev.map((item) =>
+            item.ticketId === record.ticketId
+              ? { ...item, note: latestNote }
+              : item,
+          ),
+        );
+        setAddNoteModal({ open: false, record: undefined });
+        setAdditionalNote("");
+      } else {
+        message.error("Cập nhật ghi chú thất bại!");
+      }
+    } catch (error) {
+      console.error("Lỗi cập nhật ghi chú:", error);
+      message.error("Không thể thêm ghi chú. Vui lòng thử lại!");
+    }
   };
 
   const columns = [
@@ -394,25 +594,44 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
       dataIndex: "ticketStatus",
       key: "ticketStatus",
       width: 30,
-      render: (status: string) => (
-        <Tag color={statusConfig[status]?.color || "default"}>
-          {statusConfig[status]?.text || status}
-        </Tag>
-      ),
+      render: (status: string) => renderTicketStatusIcon(status),
     },
     {
       title: "Người hỗ trợ",
       dataIndex: "userAssigneeName",
       key: "userAssigneeName",
       width: 45,
-      render: (assignee: string) =>
-        assignee || <span style={{ color: "#aaa" }}>-</span>,
+      render: (_: string, record: any) => renderSupportAssignee(record),
     },
     {
       title: "Ghi chú",
       dataIndex: "note",
       key: "note",
-      width: 80,
+      width: 140,
+      render: (value: string, record: any) => {
+        const canAddNote =
+          record.ticketStatus === 1 &&
+          userObj?.maNV === record.userAssigneeCode;
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ whiteSpace: "pre-wrap" }}>
+              {value || <span style={{ color: "#aaa" }}>-</span>}
+            </span>
+            {canAddNote && (
+              <Button
+                type="link"
+                size="small"
+                icon={<PlusOutlined />}
+                style={{ padding: 0, height: "auto", width: "fit-content" }}
+                onClick={() => handleOpenAddNote(record)}
+              >
+                Thêm ghi chú
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Thời gian tiếp nhận",
@@ -612,6 +831,34 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
         </Form>
       </Modal>
       <Modal
+        open={addNoteModal.open}
+        title="Thêm ghi chú ticket"
+        onCancel={() => setAddNoteModal({ open: false, record: undefined })}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={() => setAddNoteModal({ open: false, record: undefined })}
+          >
+            Hủy
+          </Button>,
+          <Button key="ok" type="primary" onClick={handleAddNoteFinish}>
+            Lưu ghi chú
+          </Button>,
+        ]}
+        destroyOnClose
+      >
+        <p style={{ marginBottom: 8 }}>
+          <b>{addNoteModal.record?.ticketCode}</b> -{" "}
+          {addNoteModal.record?.ticketTitle}
+        </p>
+        <Input.TextArea
+          rows={4}
+          placeholder="Nhập ghi chú bổ sung"
+          value={additionalNote}
+          onChange={(e) => setAdditionalNote(e.target.value)}
+        />
+      </Modal>
+      <Modal
         open={viewModal.open}
         title="Chi tiết ticket"
         onCancel={() => setViewModal({ open: false, record: undefined })}
@@ -792,7 +1039,13 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
   );
 }
 
-function CreateTicketTab() {
+function CreateTicketTab({
+  onClose,
+  onCreated,
+}: {
+  onClose?: () => void;
+  onCreated?: () => void;
+}) {
   const dispatch = useDispatch();
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
@@ -849,6 +1102,7 @@ function CreateTicketTab() {
         form.resetFields();
         editorRef.current?.setContent("");
         setFileList([]);
+        onCreated?.();
 
         // ✅ 2️⃣ Gửi Teams webhook chạy nền (không ảnh hưởng UI)
         Promise.resolve(
@@ -971,7 +1225,10 @@ function CreateTicketTab() {
             <Form.Item style={{ textAlign: "right", marginBottom: 0 }}>
               <Button
                 style={{ marginRight: 8 }}
-                onClick={() => form.resetFields()}
+                onClick={() => {
+                  form.resetFields();
+                  onClose?.();
+                }}
               >
                 Hủy
               </Button>
@@ -1070,6 +1327,13 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     open: false,
     record: undefined,
   });
+  const [addNoteModal, setAddNoteModal] = useState<{
+    open: boolean;
+    record?: any;
+  }>({
+    open: false,
+    record: undefined,
+  });
   // Modal cho hành vi Xóa / Hủy ticket (giống MyTicketsTab)
   const [cancelModal, setCancelModal] = useState<{
     open: boolean;
@@ -1083,6 +1347,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
   const [note, setNote] = useState(""); // ✅ state để lưu nội dung ghi chú
+  const [additionalNote, setAdditionalNote] = useState("");
   const [onlyMyTicket, setOnlyMyTicket] = useState(false);
 
   const userStr = localStorage.getItem("user");
@@ -1135,7 +1400,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     const fetchLoop = async () => {
       await fetchData(pagination.current, pagination.pageSize, filterObj);
       if (isActive) {
-        timer = setTimeout(fetchLoop, 30000); // Gọi lại sau 30s
+        timer = setTimeout(fetchLoop, 60000); // Gọi lại sau 30s
       }
     };
 
@@ -1202,15 +1467,29 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   const handleCompleteFinish = async () => {
     try {
       const record = completeModal.record;
+      const newNoteText = note.trim() || "hoàn thành!";
+      const latestNote = newNoteText;
 
       // ✅ Gọi API "Hoàn tất ticket"
       await ticketLogApi.completeTicket(record.ticketId, {
-        note: note || "hoàn thành!", // lấy từ input hoặc fallback
+        note: latestNote,
       });
 
       setCompleteModal({ open: false, record: undefined });
       setNote("");
       message.success("Ticket đã được hoàn tất!");
+
+      setData((prev) =>
+        prev.map((item) =>
+          item.ticketId === record.ticketId
+            ? {
+                ...item,
+                note: latestNote,
+                approvedAt: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
 
       // ✅ Reload lại data từ server để cập nhật đúng trạng thái và nút thao tác
       await fetchData(pagination.current, pagination.pageSize, filters);
@@ -1233,9 +1512,11 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
         return;
       }
 
+      const latestNote = note.trim();
+
       // Gọi API hủy ticket
       await ticketLogApi.cancelTicket(record.ticketId, {
-        note: note || "Hủy!",
+        note: latestNote,
         userAssigneeCode: userObj?.maNV || "",
         userAssigneeName: userObj?.hoTen || "",
         userAssigneeDepartment: userObj?.phongBan || "",
@@ -1244,6 +1525,14 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       setCancelModal({ open: false, record: undefined });
       setNote("");
       message.success("Ticket đã được hủy!");
+
+      setData((prev) =>
+        prev.map((item) =>
+          item.ticketId === record.ticketId
+            ? { ...item, note: latestNote }
+            : item,
+        ),
+      );
 
       // Reload lại dữ liệu
       await fetchData(pagination.current, pagination.pageSize, filters);
@@ -1302,6 +1591,49 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   // Xem chi tiết ticket
   const handleView = (record: any) => {
     setViewModal({ open: true, record });
+  };
+
+  const handleOpenAddNote = (record: any) => {
+    setAdditionalNote("");
+    setAddNoteModal({ open: true, record });
+  };
+
+  const handleAddNoteFinish = async () => {
+    try {
+      const record = addNoteModal.record;
+      if (!additionalNote.trim()) {
+        message.error("Vui lòng nhập nội dung ghi chú!");
+        return;
+      }
+
+      const authorName = userObj?.hoTen || userObj?.maNV || "Người hỗ trợ";
+      const timestamp = dayjs().format("DD/MM/YYYY HH:mm");
+      const currentNote = record?.note ? `${record.note}\n` : "";
+      const appendedNote = `${currentNote}[${timestamp}] ${authorName}: ${additionalNote.trim()}`;
+
+      const res = await ticketLogApi.UpdateTicket(record.ticketId, {
+        ...record,
+        note: appendedNote,
+      });
+
+      if (res?.message) {
+        message.success(res.message);
+        setData((prev) =>
+          prev.map((item) =>
+            item.ticketId === record.ticketId
+              ? { ...item, note: appendedNote }
+              : item,
+          ),
+        );
+        setAddNoteModal({ open: false, record: undefined });
+        setAdditionalNote("");
+      } else {
+        message.error("Cập nhật ghi chú thất bại!");
+      }
+    } catch (error) {
+      console.error("Lỗi cập nhật ghi chú:", error);
+      message.error("Không thể thêm ghi chú. Vui lòng thử lại!");
+    }
   };
 
   const columns = [
@@ -1468,25 +1800,44 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       dataIndex: "ticketStatus",
       key: "ticketStatus",
       width: 30,
-      render: (status: string) => (
-        <Tag color={statusConfig[status]?.color || "default"}>
-          {statusConfig[status]?.text || status}
-        </Tag>
-      ),
+      render: (status: string) => renderTicketStatusIcon(status),
     },
     {
       title: "Người hỗ trợ",
       dataIndex: "userAssigneeName",
       key: "userAssigneeName",
       width: 45,
-      render: (assignee: string) =>
-        assignee || <span style={{ color: "#aaa" }}>-</span>,
+      render: (_: string, record: any) => renderSupportAssignee(record),
     },
     {
       title: "Ghi chú",
       dataIndex: "note",
       key: "note",
       width: 80,
+      render: (value: string, record: any) => {
+        const canAddNote =
+          record.ticketStatus === 1 &&
+          userObj?.maNV === record.userAssigneeCode;
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ whiteSpace: "pre-wrap" }}>
+              {value || <span style={{ color: "#aaa" }}>-</span>}
+            </span>
+            {canAddNote && (
+              <Button
+                type="link"
+                size="small"
+                icon={<PlusOutlined />}
+                style={{ padding: 0, height: "auto", width: "fit-content" }}
+                onClick={() => handleOpenAddNote(record)}
+              >
+                Thêm ghi chú
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Thời gian tiếp nhận",
@@ -1694,6 +2045,34 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
         />
       </Modal>
       <Modal
+        open={addNoteModal.open}
+        title="Thêm ghi chú ticket"
+        onCancel={() => setAddNoteModal({ open: false, record: undefined })}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={() => setAddNoteModal({ open: false, record: undefined })}
+          >
+            Hủy
+          </Button>,
+          <Button key="ok" type="primary" onClick={handleAddNoteFinish}>
+            Lưu ghi chú
+          </Button>,
+        ]}
+        destroyOnClose
+      >
+        <p style={{ marginBottom: 8 }}>
+          <b>{addNoteModal.record?.ticketCode}</b> -{" "}
+          {addNoteModal.record?.ticketTitle}
+        </p>
+        <Input.TextArea
+          rows={4}
+          placeholder="Nhập ghi chú bổ sung"
+          value={additionalNote}
+          onChange={(e) => setAdditionalNote(e.target.value)}
+        />
+      </Modal>
+      <Modal
         open={viewModal.open}
         title="Chi tiết ticket"
         onCancel={() => setViewModal({ open: false, record: undefined })}
@@ -1846,23 +2225,37 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
 }
 
 const TicketProcessing = () => {
-  const [activeTab, setActiveTab] = useState("all");
+  const userStr = localStorage.getItem("user");
+  const userObj = userStr ? JSON.parse(userStr) : {};
+  const isAdmin = userObj.role === "admin";
+
+  const [activeTab, setActiveTab] = useState(isAdmin ? "all" : "mine");
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [todaySupportSummary, setTodaySupportSummary] = useState<
-    Array<{ code: string; name: string; count: number }>
-  >([]);
+    Record<
+      string,
+      Array<{
+        email: string;
+        avatar?: string;
+        code: string;
+        name: string;
+        count: number;
+      }>
+    >
+  >({ SOFT: [], HARD: [], SAP: [] });
   // const [todayWaitingCount, setTodayWaitingCount] = useState(0);
   // const [todayCreatedCount, setTodayCreatedCount] = useState(0);
   const [todayWaitingByType, setTodayWaitingByType] = useState<
     Record<string, number>
   >({ SOFT: 0, HARD: 0, SAP: 0 });
-  const [todayCreatedByType, setTodayCreatedByType] = useState<
-    Record<string, number>
-  >({ SOFT: 0, HARD: 0, SAP: 0 });
+  // const [todayCreatedByType, setTodayCreatedByType] = useState<Record<string, number>>({
+  //   SOFT: 0,
+  //   HARD: 0,
+  //   SAP: 0,
+  // });
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [showSupportList, setShowSupportList] = useState(true);
   const ticketFilter = useSelector((state: RootState) => state.ticket);
-  // console.log("Active Tab:", activeTab);
-  const userStr = localStorage.getItem("user");
-  const userObj = userStr ? JSON.parse(userStr) : {};
 
   const fetchTodaySupportSummary = async () => {
     setSummaryLoading(true);
@@ -1922,45 +2315,118 @@ const TicketProcessing = () => {
       // setTodayWaitingCount(waitingCount);
       // setTodayCreatedCount(createdCount);
       setTodayWaitingByType(waitingByType);
-      setTodayCreatedByType(createdByType);
+      // setTodayCreatedByType(createdByType);
 
-      const summaryMap = new Map<
+      // Tạo mapping từ maNhanVien -> staff info từ json_info_user
+      const staffGroupMap = new Map<
         string,
-        { code: string; name: string; count: number }
+        {
+          maNhomHoTro: string;
+          hoTen: string;
+          email: string;
+          avatar?: string;
+        }
       >();
+      (supportStaffData.supportStaff || []).forEach((staff: any) => {
+        staffGroupMap.set(staff.maNhanVien, {
+          maNhomHoTro: staff.maNhomHoTro,
+          hoTen: staff.hoTen,
+          email: staff.email,
+          avatar: staff.avatar,
+        });
+      });
 
+      // Group theo maNhomHoTro - khởi tạo với TẤT CẢ staff từ json
+      const summaryByGroup: Record<
+        string,
+        Map<
+          string,
+          {
+            code: string;
+            name: string;
+            count: number;
+            email: string;
+            avatar?: string;
+          }
+        >
+      > = {
+        SOFT: new Map(),
+        HARD: new Map(),
+        SAP: new Map(),
+      };
+
+      // Bước 1: Thêm tất cả staff từ json config vào summaryByGroup với count = 0
+      (supportStaffData.supportStaff || []).forEach((staff: any) => {
+        const group = staff.maNhomHoTro;
+        const key = `${staff.maNhanVien}-${staff.hoTen}`;
+        if (summaryByGroup[group] && !summaryByGroup[group].has(key)) {
+          summaryByGroup[group].set(key, {
+            code: staff.maNhanVien,
+            name: staff.hoTen,
+            count: 0,
+            email: staff.email,
+            avatar: staff.avatar,
+          });
+        }
+      });
+
+      // Bước 2: Đếm tickets cho mỗi staff
       allItems
         .filter((x) => x.ticketStatus === 1)
         .forEach((ticket: any) => {
           const hasAssignee = !!ticket?.userAssigneeCode;
-          // const isReceivedToday = ticket?.receivedAt
-          //   ? dayjs(ticket.receivedAt).isSame(dayjs(), "day")
-          //   : false;
-
           if (!hasAssignee) return;
 
           const code = ticket.userAssigneeCode;
           const name = ticket.userAssigneeName || "Chưa rõ";
+          const staffInfo = staffGroupMap.get(code);
+          const group = staffInfo?.maNhomHoTro || "SOFT";
           const key = `${code}-${name}`;
 
-          if (!summaryMap.has(key)) {
-            summaryMap.set(key, { code, name, count: 0 });
+          // Nếu staff chưa trong map, thêm vào (trường hợp staff không trong json)
+          if (!summaryByGroup[group].has(key)) {
+            summaryByGroup[group].set(key, {
+              code,
+              name,
+              count: 0,
+              email: staffInfo?.email || "",
+              avatar: staffInfo?.avatar,
+            });
           }
-          const current = summaryMap.get(key)!;
+          const current = summaryByGroup[group].get(key)!;
           current.count += 1;
         });
 
-      const summaryList = Array.from(summaryMap.values()).sort(
-        (a, b) => b.count - a.count,
-      );
-      setTodaySupportSummary(summaryList);
+      // Convert Map thành Array và sort (những người có tickets ở trước)
+      const finalSummary: Record<
+        string,
+        Array<{
+          code: string;
+          name: string;
+          count: number;
+          email: string;
+          avatar?: string;
+        }>
+      > = {
+        SOFT: Array.from(summaryByGroup.SOFT.values()).sort(
+          (a, b) => b.count - a.count,
+        ),
+        HARD: Array.from(summaryByGroup.HARD.values()).sort(
+          (a, b) => b.count - a.count,
+        ),
+        SAP: Array.from(summaryByGroup.SAP.values()).sort(
+          (a, b) => b.count - a.count,
+        ),
+      };
+
+      setTodaySupportSummary(finalSummary);
     } catch (error) {
       console.error("Error fetch today support summary:", error);
-      setTodaySupportSummary([]);
+      setTodaySupportSummary({ SOFT: [], HARD: [], SAP: [] });
       // setTodayWaitingCount(0);
       // setTodayCreatedCount(0);
       setTodayWaitingByType({ SOFT: 0, HARD: 0, SAP: 0 });
-      setTodayCreatedByType({ SOFT: 0, HARD: 0, SAP: 0 });
+      // setTodayCreatedByType({ SOFT: 0, HARD: 0, SAP: 0 });
     } finally {
       setSummaryLoading(false);
     }
@@ -2000,40 +2466,21 @@ const TicketProcessing = () => {
   };
   // Chuyển sang tab tạo ticket mới
   const handleCreateTicketClick = () => {
-    setActiveTab("create");
+    setCreateModalOpen(true);
   };
 
   return (
     <div>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
-          <Title level={2} style={{ margin: 0 }}>
+          {/* <Title level={2} style={{ margin: 0 }}>
             Quản lý Yêu cầu hỗ trợ
-          </Title>
+          </Title> */}
         </Col>
-        <Col>
-          <Space>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleCreateTicketClick}
-            >
-              Tạo yêu cầu mới
-            </Button>
-            {userObj.role === "admin" && (
-              <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
-                Xuất Excel
-              </Button>
-            )}
-          </Space>
-        </Col>
+        <Col></Col>
       </Row>
 
-      <Card
-        loading={summaryLoading}
-        title="Tổng quan hỗ trợ"
-        style={{ marginBottom: 16 }}
-      >
+      <Card loading={summaryLoading} style={{ marginBottom: 16 }}>
         {/* <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
           <Col>
             <Tag color="gold">
@@ -2059,7 +2506,7 @@ const TicketProcessing = () => {
               </Tag>
             ))}
           </Col>
-          <Col xs={24} md={12}>
+          {/* <Col xs={24} md={12}>
             <div style={{ fontWeight: 500, marginBottom: 6 }}>
               Ticket được tạo trong ngày
             </div>
@@ -2071,59 +2518,302 @@ const TicketProcessing = () => {
                 {typeConfig[type]?.text || type}: {count}
               </Tag>
             ))}
+          </Col> */}
+        </Row>
+
+        <Row style={{ marginBottom: 12 }}>
+          <Col>
+            <Button
+              type="default"
+              icon={
+                showSupportList ? <EyeInvisibleOutlined /> : <EyeOutlined />
+              }
+              onClick={() => setShowSupportList((prev) => !prev)}
+            >
+              {showSupportList
+                ? "Ẩn danh sách người hỗ trợ"
+                : "Hiện danh sách người hỗ trợ"}
+            </Button>
           </Col>
         </Row>
 
-        {todaySupportSummary.length > 0 ? (
-          <Row gutter={[12, 12]}>
-            {todaySupportSummary.map((item) => (
-              <Col
-                xs={24}
-                sm={12}
-                md={8}
-                lg={3}
-                key={`${item.code}-${item.name}`}
-              >
-                <div
-                  style={{
-                    border: "1px solid #f0f0f0",
-                    borderRadius: 8,
-                    padding: 12,
-                    background: "#fafafa",
-                  }}
-                >
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>
-                    {item.code} - <br /> {item.name}
-                  </div>
-                  <Tag color="red">{item.count} yêu cầu đang xử lý</Tag>
-                </div>
-              </Col>
-            ))}
+        {showSupportList &&
+        Object.values(todaySupportSummary).flat().length > 0 ? (
+          <Row gutter={[16, 16]}>
+            {(["SOFT", "HARD", "SAP"] as const).map((group) => {
+              const staffList = todaySupportSummary[group] || [];
+              const totalCount = staffList.reduce(
+                (sum, item) => sum + item.count,
+                0,
+              );
+
+              return (
+                <Col xs={24} sm={24} md={8} key={group}>
+                  <Card
+                    style={{
+                      background: supportGroupConfig[group]?.bgColor,
+                      borderLeft: `4px solid ${supportGroupConfig[group]?.color}`,
+                      borderRadius: 8,
+                      height: 250,
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                    bodyStyle={{
+                      flex: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                      padding: "12px",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: 12,
+                        paddingBottom: 8,
+                        borderBottom: `1px solid ${supportGroupConfig[group]?.color}33`,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 18,
+                          marginRight: 8,
+                          color: supportGroupConfig[group]?.color,
+                        }}
+                      >
+                        {supportGroupConfig[group]?.icon}
+                      </span>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: supportGroupConfig[group]?.color,
+                          }}
+                        >
+                          {supportGroupConfig[group]?.text} - {totalCount} đang
+                          xử lý
+                        </div>
+                        {/* <div style={{ fontSize: 11, color: "#999" }}>
+                          {totalCount} yêu cầu
+                        </div> */}
+                      </div>
+                    </div>
+
+                    {staffList.length > 0 ? (
+                      <div
+                        style={{
+                          flex: 1,
+                          overflowY: "auto",
+                          overflowX: "hidden",
+                          paddingRight: 4,
+                        }}
+                      >
+                        {staffList.map((item) => (
+                          <div
+                            key={`${item.code}-${item.name}`}
+                            style={{
+                              padding: 8,
+                              marginBottom: 8,
+                              borderRadius: 4,
+                              background: "white",
+                              border: `1px solid ${supportGroupConfig[group]?.color}22`,
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              opacity: item.count > 0 ? 1 : 0.7,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <Tooltip
+                                title={
+                                  item.avatar ? (
+                                    <img
+                                      src={item.avatar}
+                                      alt={item.name}
+                                      style={{
+                                        width: 120,
+                                        height: 120,
+                                        objectFit: "cover",
+                                        borderRadius: 8,
+                                      }}
+                                    />
+                                  ) : (
+                                    "Chua co avatar"
+                                  )
+                                }
+                              >
+                                <Avatar
+                                  size={22}
+                                  src={item.avatar || undefined}
+                                  icon={<UserOutlined />}
+                                  style={{
+                                    flexShrink: 0,
+                                    cursor: "pointer",
+                                  }}
+                                />
+                              </Tooltip>
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  fontSize: 12,
+                                }}
+                              >
+                                {item.name} (
+                                <span
+                                  style={{
+                                    color: "#d21919ff",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {item.email}
+                                </span>
+                                )
+                              </div>
+                              {/* <div style={{ fontSize: 11, color: "#666" }}>
+                                {item.email}
+                              </div> */}
+                            </div>
+                            <Tooltip
+                              title={
+                                item.count > 0
+                                  ? `${item.count} yêu cầu đang xử lý`
+                                  : "Không có yêu cầu đang xử lý"
+                              }
+                            >
+                              <Badge
+                                count={item.count > 0 ? item.count : 0}
+                                overflowCount={99}
+                                color={item.count > 0 ? "#fa8c16" : "#52c41a"}
+                                size="small"
+                              >
+                                <span
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: "50%",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    background:
+                                      item.count > 0 ? "#fff7e6" : "#f6ffed",
+                                    border:
+                                      item.count > 0
+                                        ? "1px solid #ffd591"
+                                        : "1px solid #b7eb8f",
+                                  }}
+                                >
+                                  {item.count > 0 ? (
+                                    <Loading3QuartersOutlined
+                                      spin
+                                      style={{ color: "#fa8c16", fontSize: 14 }}
+                                    />
+                                  ) : (
+                                    <CheckCircleFilled
+                                      style={{ color: "#52c41a", fontSize: 14 }}
+                                    />
+                                  )}
+                                </span>
+                              </Badge>
+                            </Tooltip>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ color: "#aaa", fontSize: 11 }}>
+                        Chưa có nhân viên
+                      </span>
+                    )}
+                  </Card>
+                </Col>
+              );
+            })}
           </Row>
-        ) : (
+        ) : showSupportList ? (
           <span style={{ color: "#888" }}>
             Chưa có nhân viên nào tiếp nhận ticket trong ngày.
           </span>
+        ) : (
+          <span style={{ color: "#888" }}>
+            Danh sách người hỗ trợ đang được ẩn.
+          </span>
         )}
       </Card>
+
+      <Modal
+        open={createModalOpen}
+        title="Tạo yêu cầu mới"
+        onCancel={() => setCreateModalOpen(false)}
+        footer={null}
+        width={1200}
+        destroyOnClose
+      >
+        <CreateTicketTab
+          onClose={() => setCreateModalOpen(false)}
+          onCreated={() => {
+            setCreateModalOpen(false);
+          }}
+        />
+      </Modal>
+
+      <Space style={{}}>
+        <Button
+          className="ticket-create-request-button"
+          type="primary"
+          size="large"
+          icon={<PlusCircleOutlined />}
+          onClick={handleCreateTicketClick}
+          style={{
+            height: 44,
+            padding: "0 22px",
+            borderRadius: 999,
+            fontWeight: 700,
+            border: "1px solid rgba(255, 255, 255, 0.32)",
+            background:
+              "linear-gradient(135deg, #1677ff 0%, #2f54eb 45%, #13c2c2 100%)",
+            boxShadow:
+              "0 14px 30px rgba(22, 119, 255, 0.38), 0 0 0 1px rgba(22, 119, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.18)",
+          }}
+        >
+          Tạo yêu cầu hỗ trợ
+        </Button>
+        {userObj.role === "admin" && (
+          <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
+            Xuất Excel
+          </Button>
+        )}
+      </Space>
 
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
         style={{ marginBottom: 16 }}
         items={[
-          {
-            key: "all",
-            label: (
-              <>
-                <span style={{ marginRight: 6 }}>
-                  <i className="fa fa-list" />
-                </span>
-                Tất cả yêu cầu
-              </>
-            ),
-            children: <AllTicketsTab activeTab={activeTab} />,
-          },
+          ...(isAdmin
+            ? [
+                {
+                  key: "all",
+                  label: (
+                    <>
+                      <span style={{ marginRight: 6 }}>
+                        <i className="fa fa-list" />
+                      </span>
+                      Tất cả yêu cầu
+                    </>
+                  ),
+                  children: <AllTicketsTab activeTab={activeTab} />,
+                },
+              ]
+            : []),
           {
             key: "mine",
             label: (
@@ -2135,18 +2825,6 @@ const TicketProcessing = () => {
               </>
             ),
             children: <MyTicketsTab activeTab={activeTab} />,
-          },
-          {
-            key: "create",
-            label: (
-              <>
-                <span style={{ marginRight: 6 }}>
-                  <i className="fa fa-plus-circle" />
-                </span>
-                Tạo yêu cầu mới
-              </>
-            ),
-            children: <CreateTicketTab />,
           },
         ]}
       />

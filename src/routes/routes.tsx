@@ -16,7 +16,7 @@ export const routes = [
         index: true,
         element: (
           <RequireAuth>
-            <Dashboard />
+            <TicketProcessing />
           </RequireAuth>
         ),
       },

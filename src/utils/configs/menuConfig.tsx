@@ -12,7 +12,7 @@ export const menuConfig = [
     key: "1",
     icon: <DashboardOutlined />,
     path: "/",
-    label: <NavLink to="/">Dashboard</NavLink>,
+    label: <NavLink to="/dashboard">Dashboard</NavLink>,
     roles: ["admin"], // chỉ admin mới thấy
   },
   // {

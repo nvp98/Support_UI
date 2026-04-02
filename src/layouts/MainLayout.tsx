@@ -38,6 +38,10 @@ const MainLayout = () => {
   const editorRef = useRef<any>(null);
   const [loading, setLoading] = useState(false);
 
+  const handleOpenCreateModal = () => {
+    setOpen(true);
+  };
+
   const handleFinish = async (values: any) => {
     try {
       setLoading(true);
@@ -176,16 +180,28 @@ const MainLayout = () => {
           >
             <Outlet />
             <FloatButton
-              shape="circle"
+              shape="square"
               type="primary"
-              tooltip={<div>Tạo mới Ticket</div>}
-              onClick={() => setOpen(true)}
+              className="create-request-float-button"
+              tooltip="Tạo yêu cầu mới"
+              description="Tạo yêu cầu mới"
+              onClick={handleOpenCreateModal}
               icon={<PlusCircleOutlined />}
+              style={{
+                width: 184,
+                height: 56,
+                borderRadius: 999,
+                boxShadow: "0 12px 28px rgba(22, 119, 255, 0.35)",
+                fontWeight: 700,
+                background: "linear-gradient(135deg, #1677ff 0%, #13c2c2 100%)",
+                border: "none",
+                display: "none",
+              }}
             />
 
             {/* Modal form */}
             <Modal
-              title="Tạo mới Ticket"
+              title="Tạo yêu cầu mới"
               open={open}
               // onOk={handleOk}
               onCancel={() => setOpen(false)}
