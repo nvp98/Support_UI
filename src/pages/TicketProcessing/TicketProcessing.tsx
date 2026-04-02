@@ -50,6 +50,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Editor } from "@tinymce/tinymce-react";
+import "./TicketProcessing.css";
 
 // Core
 import "tinymce/tinymce";
@@ -1381,7 +1382,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     if (activeTab !== "all") return;
 
     let isActive = true;
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     const filterObj: any = {};
 
     if (searchText) filterObj.keyword = searchText;
