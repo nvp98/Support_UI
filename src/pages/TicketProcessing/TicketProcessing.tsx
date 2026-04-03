@@ -2078,6 +2078,37 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
         title="Chi tiết ticket"
         onCancel={() => setViewModal({ open: false, record: undefined })}
         footer={[
+          ...(userObj.role === "admin" &&
+          Number(viewModal.record?.ticketStatus) === 0
+            ? [
+                <Button
+                  key="receive"
+                  type="primary"
+                  icon={<PlusSquareTwoTone twoToneColor="#1890ff" />}
+                  onClick={() => {
+                    const record = viewModal.record;
+                    if (!record) return;
+                    setViewModal({ open: false, record: undefined });
+                    handleProcess(record);
+                  }}
+                >
+                  Tiếp nhận xử lý
+                </Button>,
+                <Button
+                  key="cancel-ticket"
+                  danger
+                  icon={<DeleteTwoTone twoToneColor="#ff4d4f" />}
+                  onClick={() => {
+                    const record = viewModal.record;
+                    if (!record) return;
+                    setViewModal({ open: false, record: undefined });
+                    handleDelete(record);
+                  }}
+                >
+                  Hủy ticket
+                </Button>,
+              ]
+            : []),
           <Button
             key="close"
             onClick={() => setViewModal({ open: false, record: undefined })}
