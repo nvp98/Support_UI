@@ -465,7 +465,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
 
       const latestNote = additionalNote.trim();
 
-      const res = await ticketLogApi.UpdateTicket(record.ticketId, {
+      const res = await ticketLogApi.noteTicket(record.ticketId, {
         ...record,
         note: latestNote,
       });
@@ -1371,6 +1371,54 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       setLoading(false);
     }
   };
+
+  // Auto refresh mỗi 60s khi đang ở tab "Tất cả ticket"
+  const isEqual = (a: any[], b: any[]) =>
+    JSON.stringify(a) === JSON.stringify(b);
+
+  const fetchAutoData = async (
+    page = 1,
+    pageSize = 10,
+    filters = {},
+    isSilent = false,
+  ) => {
+    if (!isSilent) setLoading(true);
+    try {
+      const res = await ticketLogApi.getTickets(page, pageSize, filters);
+
+      // 🚀 chỉ update nếu data thay đổi
+      requestAnimationFrame(() => {
+        setData((prev) => (isEqual(prev, res.items) ? prev : res.items));
+      });
+      // setData((prev) => {
+      //   if (isEqual(prev, res.items)) return prev;
+      //   return res.items;
+      // });
+
+      // 🚀 chỉ update pagination nếu cần
+      setPagination((prev) => {
+        if (
+          prev.current === page &&
+          prev.pageSize === pageSize &&
+          prev.total === res.totalRecords
+        ) {
+          return prev;
+        }
+
+        return {
+          current: page,
+          pageSize: pageSize,
+          total: res.totalRecords,
+        };
+      });
+
+      setFilters(filters);
+    } catch (err) {
+      console.error("Error fetch tickets:", err);
+    } finally {
+      if (!isSilent) setLoading(false);
+    }
+  };
   // useEffect(() => {
   //   fetchData(pagination.current, pagination.pageSize, {
   //     // usercode: userObj?.maNV || "",
@@ -1399,9 +1447,15 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     else dispatch(clearTicketFilter());
 
     const fetchLoop = async () => {
-      await fetchData(pagination.current, pagination.pageSize, filterObj);
+      // await fetchData(pagination.current, pagination.pageSize, filterObj);
+      await fetchAutoData(
+        pagination.current,
+        pagination.pageSize,
+        filterObj,
+        true,
+      );
       if (isActive) {
-        timer = setTimeout(fetchLoop, 60000); // Gọi lại sau 30s
+        timer = setTimeout(fetchLoop, 30000); // Gọi lại sau 30s
       }
     };
 
@@ -1612,7 +1666,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       const currentNote = record?.note ? `${record.note}\n` : "";
       const appendedNote = `${currentNote}[${timestamp}] ${authorName}: ${additionalNote.trim()}`;
 
-      const res = await ticketLogApi.UpdateTicket(record.ticketId, {
+      const res = await ticketLogApi.noteTicket(record.ticketId, {
         ...record,
         note: appendedNote,
       });
@@ -1935,6 +1989,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       </Card>
       <Card>
         <Table
+          rowKey="ticketId"
           columns={columns}
           dataSource={data}
           loading={loading}

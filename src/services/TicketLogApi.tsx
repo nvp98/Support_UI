@@ -15,7 +15,7 @@ export const ticketLogApi = {
       toDate?: string; // yyyy-MM-dd
       type?: string;
       userAssigneeCode?: string;
-    } = {}
+    } = {},
   ) => {
     const query = new URLSearchParams({
       page: page.toString(),
@@ -57,6 +57,12 @@ export const ticketLogApi = {
   // PUT: cập nhật hoàn tất ticket
   completeTicket: (id: number, data: any) =>
     apiService.put(`/api/TicketLogs/completed/${id}`, data, {
+      headers: { "Content-Type": "application/json" },
+    }),
+
+  // PUT: cập nhật hoàn tất ticket
+  noteTicket: (id: number, data: any) =>
+    apiService.put(`/api/TicketLogs/note/${id}`, data, {
       headers: { "Content-Type": "application/json" },
     }),
 
