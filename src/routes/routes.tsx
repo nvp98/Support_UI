@@ -1,6 +1,6 @@
 // routes.tsx
 import MainLayout from "../layouts/MainLayout";
-import { Home, Dashboard, TicketProcessing, Reports, Settings } from "../pages";
+import { Home, Dashboard, TicketProcessing, Reports, Settings, QuanLyThietBi } from "../pages";
 import LoginPage from "../pages/Login/LoginPage";
 import NotFound from "../pages/NotFound/NotFound";
 import RequireAuth from "./RequireAuth";
@@ -62,6 +62,16 @@ export const routes = [
           <RequireAuth>
             <RequireRole allowedRoles={["admin"]}>
               <Home />
+            </RequireRole>
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "quan-ly-thiet-bi",
+        element: (
+          <RequireAuth>
+            <RequireRole allowedRoles={["admin"]}>
+              <QuanLyThietBi />
             </RequireRole>
           </RequireAuth>
         ),

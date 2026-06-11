@@ -4,6 +4,7 @@ import {
   UploadOutlined,
   DashboardOutlined,
   FileTextOutlined,
+  LaptopOutlined,
 } from "@ant-design/icons";
 import { NavLink } from "react-router-dom";
 
@@ -40,6 +41,13 @@ export const menuConfig = [
     path: "/settings",
     label: <NavLink to="/settings">Quản trị</NavLink>,
     roles: ["admin"], // chỉ admin mới thấy
+  },
+  {
+    key: "6",
+    icon: <LaptopOutlined />,
+    path: "/quan-ly-thiet-bi",
+    label: <NavLink to="/quan-ly-thiet-bi">Quản lý thiết bị</NavLink>,
+    roles: ["admin"],
   },
   // {
   //   key: "6",
