@@ -81,4 +81,18 @@ export const ticketLogApi = {
       params,
       responseType: "blob", // Quan trọng: nhận file nhị phân
     }),
+  getSummary: () =>
+    apiService.get<{
+      waitingByType: Record<string, number>;
+      todaySupportSummary: Record<
+        string,
+        Array<{
+          code: string;
+          name: string;
+          email: string;
+          avatar: string | null;
+          count: number;
+        }>
+      >;
+    }>("/api/TicketLogs/Summary"),
 };

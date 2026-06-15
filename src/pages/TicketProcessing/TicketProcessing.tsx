@@ -2347,173 +2347,15 @@ const TicketProcessing = () => {
   const fetchTodaySupportSummary = async () => {
     setSummaryLoading(true);
     try {
-      const today = dayjs()
-        .subtract(1, "month")
-        .startOf("month")
-        .format("YYYY-MM-DD");
-      const denngay = dayjs().add(1, "day").format("YYYY-MM-DD");
-      const firstPage = await ticketLogApi.getTickets(1, 200, {
-        fromDate: today,
-        toDate: denngay,
-      });
-
-      let allItems = [...(firstPage.items || [])];
-      for (let page = 2; page <= (firstPage.totalPages || 1); page += 1) {
-        const nextPage = await ticketLogApi.getTickets(page, 200, {
-          fromDate: today,
-          toDate: denngay,
-        });
-        allItems = allItems.concat(nextPage.items || []);
-      }
-
-      const now = dayjs();
-      const createdToday = allItems.filter((ticket: any) =>
-        ticket?.createdAt ? dayjs(ticket.createdAt).isSame(now, "day") : false,
+      const res = await ticketLogApi.getSummary();
+      setTodayWaitingByType(res.waitingByType ?? { SOFT: 0, HARD: 0, SAP: 0 });
+      setTodaySupportSummary(
+        (res as any).todaySupportSummary ?? { SOFT: [], HARD: [], SAP: [] },
       );
-      const waitingToday = allItems.filter(
-        (ticket: any) => Number(ticket?.ticketStatus) === 1,
-      );
-
-      const waitingByType = waitingToday.reduce(
-        (acc: Record<string, number>, ticket: any) => {
-          const ticketType = ticket?.ticketType;
-          if (ticketType && acc[ticketType] !== undefined) {
-            acc[ticketType] += 1;
-          }
-          return acc;
-        },
-        { SOFT: 0, HARD: 0, SAP: 0 },
-      );
-
-      const createdByType = createdToday.reduce(
-        (acc: Record<string, number>, ticket: any) => {
-          const ticketType = ticket?.ticketType;
-          if (ticketType && acc[ticketType] !== undefined) {
-            acc[ticketType] += 1;
-          }
-          return acc;
-        },
-        { SOFT: 0, HARD: 0, SAP: 0 },
-      );
-
-      // const waitingCount = waitingToday.length;
-      // const createdCount = createdToday.length;
-
-      // setTodayWaitingCount(waitingCount);
-      // setTodayCreatedCount(createdCount);
-      setTodayWaitingByType(waitingByType);
-      // setTodayCreatedByType(createdByType);
-
-      // Tạo mapping từ maNhanVien -> staff info từ json_info_user
-      const staffGroupMap = new Map<
-        string,
-        {
-          maNhomHoTro: string;
-          hoTen: string;
-          email: string;
-          avatar?: string;
-        }
-      >();
-      (supportStaffData.supportStaff || []).forEach((staff: any) => {
-        staffGroupMap.set(staff.maNhanVien, {
-          maNhomHoTro: staff.maNhomHoTro,
-          hoTen: staff.hoTen,
-          email: staff.email,
-          avatar: staff.avatar,
-        });
-      });
-
-      // Group theo maNhomHoTro - khởi tạo với TẤT CẢ staff từ json
-      const summaryByGroup: Record<
-        string,
-        Map<
-          string,
-          {
-            code: string;
-            name: string;
-            count: number;
-            email: string;
-            avatar?: string;
-          }
-        >
-      > = {
-        SOFT: new Map(),
-        HARD: new Map(),
-        SAP: new Map(),
-      };
-
-      // Bước 1: Thêm tất cả staff từ json config vào summaryByGroup với count = 0
-      (supportStaffData.supportStaff || []).forEach((staff: any) => {
-        const group = staff.maNhomHoTro;
-        const key = `${staff.maNhanVien}-${staff.hoTen}`;
-        if (summaryByGroup[group] && !summaryByGroup[group].has(key)) {
-          summaryByGroup[group].set(key, {
-            code: staff.maNhanVien,
-            name: staff.hoTen,
-            count: 0,
-            email: staff.email,
-            avatar: staff.avatar,
-          });
-        }
-      });
-
-      // Bước 2: Đếm tickets cho mỗi staff
-      allItems
-        .filter((x) => x.ticketStatus === 1)
-        .forEach((ticket: any) => {
-          const hasAssignee = !!ticket?.userAssigneeCode;
-          if (!hasAssignee) return;
-
-          const code = ticket.userAssigneeCode;
-          const name = ticket.userAssigneeName || "Chưa rõ";
-          const staffInfo = staffGroupMap.get(code);
-          const group = staffInfo?.maNhomHoTro || "SOFT";
-          const key = `${code}-${name}`;
-
-          // Nếu staff chưa trong map, thêm vào (trường hợp staff không trong json)
-          if (!summaryByGroup[group].has(key)) {
-            summaryByGroup[group].set(key, {
-              code,
-              name,
-              count: 0,
-              email: staffInfo?.email || "",
-              avatar: staffInfo?.avatar,
-            });
-          }
-          const current = summaryByGroup[group].get(key)!;
-          current.count += 1;
-        });
-
-      // Convert Map thành Array và sort (những người có tickets ở trước)
-      const finalSummary: Record<
-        string,
-        Array<{
-          code: string;
-          name: string;
-          count: number;
-          email: string;
-          avatar?: string;
-        }>
-      > = {
-        SOFT: Array.from(summaryByGroup.SOFT.values()).sort(
-          (a, b) => b.count - a.count,
-        ),
-        HARD: Array.from(summaryByGroup.HARD.values()).sort(
-          (a, b) => b.count - a.count,
-        ),
-        SAP: Array.from(summaryByGroup.SAP.values()).sort(
-          (a, b) => b.count - a.count,
-        ),
-      };
-
-      setTodaySupportSummary(finalSummary);
     } catch (error) {
       console.error("Error fetch today support summary:", error);
       setTodaySupportSummary({ SOFT: [], HARD: [], SAP: [] });
-      // setTodayWaitingCount(0);
-      // setTodayCreatedCount(0);
       setTodayWaitingByType({ SOFT: 0, HARD: 0, SAP: 0 });
-      // setTodayCreatedByType({ SOFT: 0, HARD: 0, SAP: 0 });
     } finally {
       setSummaryLoading(false);
     }
@@ -2523,7 +2365,7 @@ const TicketProcessing = () => {
     fetchTodaySupportSummary();
     const timer = setInterval(() => {
       fetchTodaySupportSummary();
-    }, 30000);
+    }, 60000);
 
     return () => clearInterval(timer);
   }, []);
