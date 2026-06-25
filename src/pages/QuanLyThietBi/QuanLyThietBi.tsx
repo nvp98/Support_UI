@@ -363,7 +363,7 @@ function QuanLyThietBiTab() {
       title: "Ghi chú",
       dataIndex: "ghiChu",
       key: "ghiChu",
-      width: 200,
+      width: 70,
       ellipsis: true,
       render: (v: string) => v || <span style={{ color: "#aaa" }}>-</span>,
     },
