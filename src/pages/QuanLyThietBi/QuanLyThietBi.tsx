@@ -334,6 +334,18 @@ function QuanLyThietBiTab() {
         ),
     },
     {
+      title: "Ngày nhận máy",
+      dataIndex: "ngayNm",
+      key: "ngayNm",
+      width: 110,
+      render: (v: string) =>
+        v ? (
+          dayjs(v).format("DD/MM/YYYY")
+        ) : (
+          <span style={{ color: "#aaa" }}>-</span>
+        ),
+    },
+    {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
