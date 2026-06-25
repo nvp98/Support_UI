@@ -46,7 +46,7 @@ export const menuConfig = [
     key: "6",
     icon: <LaptopOutlined />,
     path: "/quan-ly-thiet-bi",
-    label: <NavLink to="/quan-ly-thiet-bi">Quản lý thiết bị</NavLink>,
+    label: <NavLink to="/quan-ly-thiet-bi">Sự cố thiết bị</NavLink>,
     roles: ["admin"],
   },
   // {

@@ -1041,7 +1041,7 @@ const QuanLyThietBi = () => {
   return (
     <div>
       <Title level={4} style={{ marginBottom: 16 }}>
-        Quản lý thiết bị
+        Sự cố thiết bị
       </Title>
       <Divider style={{ margin: "0 0 16px" }} />
       <Tabs defaultActiveKey="qlthietbi" items={tabItems} />
