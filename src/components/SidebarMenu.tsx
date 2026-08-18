@@ -4,15 +4,25 @@ import { useEffect, useState } from "react";
 import type { User } from "../services/fakeApi";
 import { useLocation } from "react-router-dom";
 
-const hasRole = (roles: string[] | undefined, userRole: string) =>
-  !roles || roles.includes(userRole);
+const hasAccess = (
+  item: any,
+  userRole: string,
+  slcRoles: string[]
+) => {
+  if (item.slcRoles) return item.slcRoles.some((r: string) => slcRoles.includes(r));
+  return !item.roles || item.roles.includes(userRole);
+};
 
-const filterMenuItems = (items: any[], userRole: string): any[] =>
+const filterMenuItems = (
+  items: any[],
+  userRole: string,
+  slcRoles: string[]
+): any[] =>
   items
-    .filter((item) => hasRole(item.roles, userRole))
+    .filter((item) => hasAccess(item, userRole, slcRoles))
     .map((item) => {
       if (item.children) {
-        const filteredChildren = filterMenuItems(item.children, userRole);
+        const filteredChildren = filterMenuItems(item.children, userRole, slcRoles);
         if (filteredChildren.length === 0) return null;
         return { ...item, children: filteredChildren };
       }
@@ -41,7 +51,8 @@ const SidebarMenu = () => {
   }, []);
 
   const userRole = user?.role || "user";
-  const filteredMenu = filterMenuItems(menuConfig, userRole);
+  const slcRoles: string[] = (user as any)?.slcRoles || [];
+  const filteredMenu = filterMenuItems(menuConfig, userRole, slcRoles);
 
   const allLeafKeys = getAllKeys(filteredMenu);
   const currentKey =

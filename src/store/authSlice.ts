@@ -6,6 +6,7 @@ interface AuthUser {
   username: string;
   name: string;
   role: "admin" | "user";
+  slcRoles?: string[];
 }
 
 interface AuthState {

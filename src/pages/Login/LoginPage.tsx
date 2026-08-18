@@ -20,6 +20,7 @@ import { useState } from "react";
 // import { fakeAuthApi } from "../../services/fakeApi";
 import { authClient } from "../../services/ApiService";
 import { UserPermissionApi } from "../../services/UserPermissionsApi";
+import { ChangeRequestRoleApi } from "../../services/ChangeRequestRoleApi";
 
 const { Title } = Typography;
 
@@ -43,6 +44,9 @@ const LoginPage = () => {
       const user = response.data;
       const userPermissions = await UserPermissionApi.getTicketById(user.maNV);
       user.role = userPermissions?.permissionCode;
+
+      const slcRoles = await ChangeRequestRoleApi.getByActorCode(user.maNV);
+      user.slcRoles = slcRoles?.roles ?? [];
 
       dispatch(loginSuccess({ token, user }));
       localStorage.setItem("token", token);
