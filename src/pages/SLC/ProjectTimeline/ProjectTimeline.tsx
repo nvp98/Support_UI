@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Card, Button, Space, Select, Input, Progress, Modal, Form,
   DatePicker, InputNumber, Tooltip, Typography, Row, Col,
-  Tag, Badge, message, Statistic, Empty, Spin
+  Tag, Badge, message, Statistic, Empty, Spin, Pagination
 } from "antd";
 import {
   PlusOutlined, EditOutlined, DeleteOutlined,
@@ -18,6 +18,8 @@ import dayjs from "dayjs";
 const { Search } = Input;
 const { Option } = Select;
 const { Title, Text } = Typography;
+
+const PROJECT_PAGE_SIZE = 10;
 
 // ─── Colors ──────────────────────────────────────────────────
 const MODULE_STATUS_BG: Record<number, string> = {
@@ -433,6 +435,8 @@ export default function ProjectTimeline() {
   const [projectModules, setProjectModules] = useState<SlcModule[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingModules, setLoadingModules] = useState(false);
+  const [projectPage, setProjectPage] = useState(1);
+  const [projectTotal, setProjectTotal] = useState(0);
 
   // Filters
   const [keyword, setKeyword] = useState("");
@@ -464,13 +468,19 @@ export default function ProjectTimeline() {
         softwareId: softwareFilter,
         status: statusFilter,
         keyword: keyword || undefined,
-        pageSize: 100,
+        page: projectPage,
+        pageSize: PROJECT_PAGE_SIZE,
       });
       setProjects(res.items);
+      setProjectTotal(res.total);
+
+      if (res.items.length === 0 && projectPage > 1 && res.total > 0) {
+        setProjectPage(projectPage - 1);
+      }
     } finally {
       setLoadingProjects(false);
     }
-  }, [softwareFilter, statusFilter, keyword]);
+  }, [softwareFilter, statusFilter, keyword, projectPage]);
 
   const loadProjectModules = useCallback(async (projectId: number) => {
     setLoadingModules(true);
@@ -691,8 +701,18 @@ export default function ProjectTimeline() {
           <Search
             placeholder="Tìm dự án..."
             size="small"
-            onSearch={setKeyword}
-            onChange={(e) => !e.target.value && setKeyword("")}
+            onSearch={(value) => {
+              setSelectedProjectId(null);
+              setProjectPage(1);
+              setKeyword(value);
+            }}
+            onChange={(e) => {
+              if (!e.target.value) {
+                setSelectedProjectId(null);
+                setProjectPage(1);
+                setKeyword("");
+              }
+            }}
             allowClear
             style={{ marginBottom: 6 }}
           />
@@ -703,7 +723,11 @@ export default function ProjectTimeline() {
                 size="small"
                 style={{ width: "100%" }}
                 allowClear
-                onChange={setSoftwareFilter}
+                onChange={(value) => {
+                  setSelectedProjectId(null);
+                  setProjectPage(1);
+                  setSoftwareFilter(value);
+                }}
               >
                 {softwares.map((s) => <Option key={s.id} value={s.id}>{s.name}</Option>)}
               </Select>
@@ -714,7 +738,11 @@ export default function ProjectTimeline() {
                 size="small"
                 style={{ width: "100%" }}
                 allowClear
-                onChange={setStatusFilter}
+                onChange={(value) => {
+                  setSelectedProjectId(null);
+                  setProjectPage(1);
+                  setStatusFilter(value);
+                }}
               >
                 {Object.entries(PROJECT_STATUS_LABELS).map(([k, v]) => (
                   <Option key={k} value={Number(k)}>{v}</Option>
@@ -778,8 +806,17 @@ export default function ProjectTimeline() {
                       </Space>
                     )}
                   </div>
-                  <div style={{ fontSize: 11, color: "#8c8c8c", marginTop: 2 }}>
-                    {p.softwareName} · {p.code}
+                  <div className="flex items-center" style={{ marginTop: 3, minWidth: 0 }}>
+                    <Tag
+                      color="blue"
+                      bordered={false}
+                      style={{ marginRight: 5, fontSize: 10, lineHeight: "18px", maxWidth: 160 }}
+                    >
+                      {p.softwareName ?? "Chưa gán phần mềm"}
+                    </Tag>
+                    <Text type="secondary" ellipsis style={{ fontSize: 10, minWidth: 0 }}>
+                      {p.code}
+                    </Text>
                     {isDelayed && <Tag color="error" style={{ marginLeft: 4, fontSize: 10, padding: "0 4px" }}>Trễ</Tag>}
                   </div>
                   <div style={{ marginTop: 6 }}>
@@ -803,6 +840,38 @@ export default function ProjectTimeline() {
             })
           )}
         </div>
+
+        {/* Project pagination */}
+        {projectTotal > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              minHeight: 42,
+              padding: "6px 10px",
+              borderTop: "1px solid #f0f0f0",
+              background: "#fff",
+            }}
+          >
+            <Text style={{ fontSize: 11, whiteSpace: "nowrap" }}>
+              {projectTotal} dự án
+            </Text>
+            <Pagination
+              simple
+              size="small"
+              current={projectPage}
+              pageSize={PROJECT_PAGE_SIZE}
+              total={projectTotal}
+              showSizeChanger={false}
+              onChange={(page) => {
+                setSelectedProjectId(null);
+                setProjectPage(page);
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -944,7 +1013,15 @@ export default function ProjectTimeline() {
                   style={{ margin: "16px 0" }}
                 />
               ) : (
-                <>
+                <div
+                  style={{
+                    maxHeight: 520,
+                    overflowY: "auto",
+                    paddingRight: 4,
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "#d9d9d9 transparent",
+                  }}
+                >
                   {/* Sort: InProgress first, then NotStarted, then Done, then OnHold */}
                   {[1, 0, 3, 2].flatMap((statusGroup) =>
                     projectModules
@@ -959,7 +1036,7 @@ export default function ProjectTimeline() {
                         />
                       ))
                   )}
-                </>
+                </div>
               )}
             </Card>
 

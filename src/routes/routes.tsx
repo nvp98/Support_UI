@@ -104,9 +104,7 @@ export const routes = [
         path: "slc/change-management",
         element: (
           <RequireAuth>
-            <RequireRole allowedRoles={["admin"]}>
-              <ChangeManagement />
-            </RequireRole>
+            <ChangeManagement />
           </RequireAuth>
         ),
       },

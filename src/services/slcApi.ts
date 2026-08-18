@@ -153,7 +153,8 @@ export const taskApi = {
 
 // ─── Change Requests ───────────────────────────────────────────────
 export const changeRequestApi = {
-  getAll: (params?: {
+  getAll: (params: {
+    actorCode: string;
     projectId?: number;
     moduleId?: number;
     status?: number;
@@ -166,25 +167,35 @@ export const changeRequestApi = {
     pageSize?: number;
   }) => ApiService.get<PagedResponse<ChangeRequest>>(`${BASE}/ChangeRequest`, { params }),
 
-  getById: (id: number) =>
-    ApiService.get<ChangeRequest>(`${BASE}/ChangeRequest/${id}`),
+  getById: (id: number, actorCode: string) =>
+    ApiService.get<ChangeRequest>(`${BASE}/ChangeRequest/${id}`, { params: { actorCode } }),
 
-  create: (data: Partial<ChangeRequest>) =>
+  create: (data: Partial<ChangeRequest> & { actorCode: string; actorName: string }) =>
     ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest`, data),
 
-  update: (id: number, data: Partial<ChangeRequest>) =>
+  update: (id: number, data: Partial<ChangeRequest> & { actorCode: string; actorName: string }) =>
     ApiService.put<ChangeRequest>(`${BASE}/ChangeRequest/${id}`, data),
 
-  updateStatus: (
-    id: number,
-    data: { status: number; actorCode?: string; actorName?: string; reason?: string }
-  ) => ApiService.put<ChangeRequest>(`${BASE}/ChangeRequest/${id}/status`, data),
+  submit: (id: number, actor: { actorCode: string; actorName: string }) =>
+    ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest/${id}/submit`, actor),
 
-  addRevision: (id: number, data: Partial<ChangeRevision>) =>
+  accept: (id: number, data: { actorCode: string; actorName: string; expectedCompletionDate: string }) =>
+    ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest/${id}/accept`, data),
+
+  approve: (id: number, actor: { actorCode: string; actorName: string }) =>
+    ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest/${id}/approve`, actor),
+
+  reject: (id: number, data: { actorCode: string; actorName: string; reason: string }) =>
+    ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest/${id}/reject`, data),
+
+  complete: (id: number, actor: { actorCode: string; actorName: string }) =>
+    ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest/${id}/complete`, actor),
+
+  addRevision: (id: number, data: Partial<ChangeRevision> & { actorCode: string; actorName: string }) =>
     ApiService.post<ChangeRevision>(`${BASE}/ChangeRequest/${id}/revisions`, data),
 
-  delete: (id: number) =>
-    ApiService.delete(`${BASE}/ChangeRequest/${id}`),
+  delete: (id: number, actor: { actorCode: string; actorName: string }) =>
+    ApiService.delete(`${BASE}/ChangeRequest/${id}`, { data: actor }),
 };
 
 // ─── Dashboard ─────────────────────────────────────────────────────
