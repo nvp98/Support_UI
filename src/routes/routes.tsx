@@ -9,6 +9,7 @@ import NotFound from "../pages/NotFound/NotFound";
 import RequireAuth from "./RequireAuth";
 import { Navigate } from "react-router-dom";
 import RequireRole from "./RequireRole";
+import RequireSlcRole from "./RequireSlcRole";
 
 export const routes = [
   {
@@ -84,9 +85,9 @@ export const routes = [
         path: "slc/dashboard",
         element: (
           <RequireAuth>
-            <RequireRole allowedRoles={["admin"]}>
+            <RequireSlcRole allowedRoles={["admin"]}>
               <SlcDashboard />
-            </RequireRole>
+            </RequireSlcRole>
           </RequireAuth>
         ),
       },
@@ -94,9 +95,9 @@ export const routes = [
         path: "slc/project-timeline",
         element: (
           <RequireAuth>
-            <RequireRole allowedRoles={["admin"]}>
+            <RequireSlcRole allowedRoles={["admin"]}>
               <ProjectTimeline />
-            </RequireRole>
+            </RequireSlcRole>
           </RequireAuth>
         ),
       },
@@ -112,9 +113,9 @@ export const routes = [
         path: "slc/business-process",
         element: (
           <RequireAuth>
-            <RequireRole allowedRoles={["admin"]}>
+            <RequireSlcRole allowedRoles={["admin"]}>
               <BusinessProcessMgmt />
-            </RequireRole>
+            </RequireSlcRole>
           </RequireAuth>
         ),
       },
@@ -122,9 +123,9 @@ export const routes = [
         path: "slc/software-catalog",
         element: (
           <RequireAuth>
-            <RequireRole allowedRoles={["admin"]}>
+            <RequireSlcRole allowedRoles={["admin"]}>
               <SoftwareCatalog />
-            </RequireRole>
+            </RequireSlcRole>
           </RequireAuth>
         ),
       },
@@ -132,9 +133,9 @@ export const routes = [
         path: "slc/import",
         element: (
           <RequireAuth>
-            <RequireRole allowedRoles={["admin"]}>
+            <RequireSlcRole allowedRoles={["admin"]}>
               <SlcImport />
-            </RequireRole>
+            </RequireSlcRole>
           </RequireAuth>
         ),
       },

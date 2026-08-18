@@ -1199,12 +1199,17 @@ export default function ProjectTimeline() {
       >
         <Form form={moduleForm} layout="vertical" onFinish={handleSaveModule}>
           <Row gutter={12}>
-            <Col span={8}>
-              <Form.Item name="code" label="Mã module" rules={[{ required: true }]}>
-                <Input disabled={!!editingModule} />
-              </Form.Item>
-            </Col>
-            <Col span={16}>
+            {editingModule && (
+              <Col span={8}>
+                <Form.Item
+                  name="code"
+                  label="Mã module"
+                >
+                  <Input disabled />
+                </Form.Item>
+              </Col>
+            )}
+            <Col span={editingModule ? 16 : 24}>
               <Form.Item name="name" label="Tên module" rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
