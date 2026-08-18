@@ -55,7 +55,6 @@ export const menuConfig = [
     key: "slc-group",
     type: "group",
     label: "Lifecycle Phần mềm",
-    roles: ["admin"],
     children: [
       {
         key: "slc-1",
@@ -90,7 +89,6 @@ export const menuConfig = [
         icon: <SwapOutlined />,
         path: "/slc/change-management",
         label: <NavLink to="/slc/change-management">Change Management</NavLink>,
-        roles: ["admin"],
       },
       {
         key: "slc-6",

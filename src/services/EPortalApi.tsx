@@ -4,6 +4,7 @@ import type {
   NvThietBi,
   NvLoiSuCoTb,
   PhongBan,
+  NhanVien,
   PagedResponse,
 } from "../models/eportal";
 
@@ -115,5 +116,28 @@ export const nhanVienApi = {
       }),
     }).toString();
     return apiService.get<any[]>(`/api/NhanVien/all${params ? `?${params}` : ""}`);
+  },
+  // Danh sách nhân viên có phân trang + tìm kiếm (mã, tên, email), dùng cho Select tìm kiếm phía server
+  search: (
+    filters: {
+      keyword?: string;
+      idPhongBan?: number;
+      isGv?: boolean;
+      page?: number;
+      pageSize?: number;
+    } = {}
+  ) => {
+    const params = new URLSearchParams({
+      page: (filters.page ?? 1).toString(),
+      pageSize: (filters.pageSize ?? 150).toString(),
+      ...(filters.keyword && { keyword: filters.keyword }),
+      ...(filters.idPhongBan !== undefined && {
+        idPhongBan: filters.idPhongBan.toString(),
+      }),
+      ...(filters.isGv !== undefined && {
+        isGv: filters.isGv.toString(),
+      }),
+    }).toString();
+    return apiService.get<PagedResponse<NhanVien>>(`/api/NhanVien?${params}`);
   },
 };

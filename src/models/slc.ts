@@ -123,6 +123,7 @@ export interface ChangeRequest {
   id: number;
   code: string;
   title: string;
+  beforeChangeContent?: string;
   content?: string;
   reason?: string;
   // 1=Low, 2=Medium, 3=High, 4=Critical
@@ -138,9 +139,8 @@ export interface ChangeRequest {
   approverName?: string;
   developerCode?: string;
   developerName?: string;
-  // 0=Draft, 1=PendingApproval, 2=Approved, 3=Analysis,
-  // 4=Estimating, 5=Development, 6=Testing, 7=Confirming, 8=Deploying,
-  // 9=Completed, 10=Rejected
+  // 0=Bản nháp, 1=Chờ tiếp nhận, 2=Chờ xác nhận,
+  // 3=Chờ hoàn thành, 4=Hoàn thành, 5=Từ chối
   status: number;
   impactTimeline: boolean;
   impactDays: number;
@@ -148,13 +148,33 @@ export interface ChangeRequest {
   impactModules?: string;
   currentRevision: number;
   createdAt: string;
+  createdByCode?: string;
+  createdByName?: string;
+  submittedAt?: string;
+  submittedByCode?: string;
+  submittedByName?: string;
+  developerAcceptedAt?: string;
+  expectedCompletionDate?: string;
   approvedAt?: string;
   completedAt?: string;
+  completedByCode?: string;
+  completedByName?: string;
   rejectedAt?: string;
   rejectedReason?: string;
+  allowedActions?: ChangeRequestAction[];
   revisions?: ChangeRevision[];
   revisionCount?: number;
 }
+
+export type ChangeRequestAction =
+  | 'EDIT'
+  | 'DELETE'
+  | 'SUBMIT'
+  | 'ADD_REVISION'
+  | 'ACCEPT'
+  | 'APPROVE'
+  | 'REJECT'
+  | 'COMPLETE';
 
 export interface ChangeRevision {
   id: number;
@@ -261,16 +281,11 @@ export const TASK_STATUS_LABELS: Record<number, string> = {
 
 export const CR_STATUS_LABELS: Record<number, string> = {
   0: 'Bản nháp',
-  1: 'Chờ phê duyệt',
-  2: 'Đã phê duyệt',
-  3: 'Phân tích',
-  4: 'Ước lượng',
-  5: 'Đang phát triển',
-  6: 'Kiểm thử',
-  7: 'Xác nhận',
-  8: 'Triển khai',
-  9: 'Hoàn thành',
-  10: 'Từ chối',
+  1: 'Chờ tiếp nhận',
+  2: 'Chờ xác nhận',
+  3: 'Chờ hoàn thành',
+  4: 'Hoàn thành',
+  5: 'Từ chối',
 };
 
 export const PRIORITY_LABELS: Record<number, string> = {
@@ -290,13 +305,8 @@ export const PRIORITY_COLORS: Record<number, string> = {
 export const CR_STATUS_COLORS: Record<number, string> = {
   0: 'default',
   1: 'gold',
-  2: 'green',
-  3: 'blue',
-  4: 'cyan',
-  5: 'purple',
-  6: 'geekblue',
-  7: 'lime',
-  8: 'orange',
-  9: 'success',
-  10: 'error',
+  2: 'blue',
+  3: 'cyan',
+  4: 'success',
+  5: 'error',
 };
