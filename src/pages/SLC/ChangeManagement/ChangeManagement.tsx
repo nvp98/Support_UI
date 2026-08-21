@@ -316,7 +316,7 @@ export default function ChangeManagement() {
         message.success("Cập nhật Change Request thành công");
       } else {
         await changeRequestApi.create(payload);
-        message.success("Tạo Change Request thành công");
+        message.success("Đã gửi Change Request");
       }
       setShowFormModal(false);
       setEditing(null);
@@ -324,7 +324,17 @@ export default function ChangeManagement() {
       clearFormEditorRefs();
       await load();
     } catch (error: unknown) {
-      message.error(asApiError(error).message ?? "Không thể lưu Change Request");
+      const apiError = asApiError(error);
+      if (editing && apiError.status === 409) {
+        message.warning(apiError.message ?? "Change Request đã được tiếp nhận hoặc thay đổi. Dữ liệu sẽ được tải lại.");
+        setShowFormModal(false);
+        setEditing(null);
+        form.resetFields();
+        clearFormEditorRefs();
+        await load();
+      } else {
+        message.error(apiError.message ?? "Không thể lưu Change Request");
+      }
     } finally {
       setCommandLoading(false);
     }
@@ -355,16 +365,6 @@ export default function ChangeManagement() {
     } catch (error: unknown) {
       message.error(asApiError(error).message ?? "Không tải được chi tiết Change Request");
     }
-  };
-
-  const confirmSubmit = (cr: ChangeRequest) => {
-    Modal.confirm({
-      title: "Gửi yêu cầu để tiếp nhận?",
-      content: "Sau khi gửi, bản nháp sẽ không thể sửa hoặc xóa.",
-      okText: "Gửi yêu cầu",
-      cancelText: "Hủy",
-      onOk: () => runCommand(cr, () => changeRequestApi.submit(cr.id, { actorCode, actorName }), "Đã gửi Change Request"),
-    });
   };
 
   const confirmApprove = (cr: ChangeRequest) => {
@@ -473,7 +473,6 @@ export default function ChangeManagement() {
 
   const actionButtons = (cr: ChangeRequest, compact = true) => (
     <Space size={compact ? 4 : 8} wrap>
-      {hasAction(cr, "SUBMIT") && commandButton("Gửi yêu cầu", <SendOutlined />, () => confirmSubmit(cr), compact)}
       {hasAction(cr, "ACCEPT") && commandButton("Tiếp nhận yêu cầu", <UserAddOutlined />, () => setAccepting(cr), compact)}
       {hasAction(cr, "APPROVE") && commandButton("Xác nhận yêu cầu", <CheckCircleOutlined />, () => confirmApprove(cr), compact)}
       {hasAction(cr, "REJECT") && commandButton("Từ chối yêu cầu", <StopOutlined />, () => setRejecting(cr), compact, true)}
@@ -586,9 +585,22 @@ export default function ChangeManagement() {
       <Modal
         title={editing ? "Sửa Change Request" : "Tạo Change Request mới"}
         open={showFormModal}
-        onOk={() => form.submit()}
         confirmLoading={commandLoading}
         onCancel={() => { setShowFormModal(false); setEditing(null); form.resetFields(); clearFormEditorRefs(); }}
+        footer={[
+          <Button key="cancel" onClick={() => { setShowFormModal(false); setEditing(null); form.resetFields(); clearFormEditorRefs(); }}>
+            Hủy
+          </Button>,
+          editing ? (
+            <Button key="save" type="primary" loading={commandLoading} onClick={() => form.submit()}>
+              Lưu
+            </Button>
+          ) : (
+            <Button key="submit" type="primary" icon={<SendOutlined />} loading={commandLoading} onClick={() => form.submit()}>
+              Gửi yêu cầu
+            </Button>
+          ),
+        ]}
         width={680}
         destroyOnClose
       >
