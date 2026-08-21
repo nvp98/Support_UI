@@ -169,7 +169,6 @@ export interface ChangeRequest {
 export type ChangeRequestAction =
   | 'EDIT'
   | 'DELETE'
-  | 'SUBMIT'
   | 'ADD_REVISION'
   | 'ACCEPT'
   | 'APPROVE'

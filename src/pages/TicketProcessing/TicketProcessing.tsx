@@ -70,7 +70,6 @@ import "tinymce/skins/ui/oxide/skin.min.css";
 
 // Ngôn ngữ (nếu cần)
 import "tinymce-i18n/langs5/vi.js";
-import { sendTeamsNotification } from "../../services/ApiService";
 import { hideLoading, showLoading } from "../../store/loadingSlice";
 import { ticketLogApi } from "../../services/TicketLogApi";
 import { buildFormData } from "../../utils/configs/buildFormData";
@@ -1089,15 +1088,6 @@ function CreateTicketTab({
       const res = await ticketLogApi.createTicket(formData);
       // message.success("Tạo ticket thành công!");
       if (res.status === 200 || res.status === 201) {
-        // Gửi thông báo qua Teams
-        // await sendTeamsNotification({
-        //   title: res.data.ticketTitle || "N/A",
-        //   code: res.data.ticketCode || "N/A",
-        //   creator: `${res.data.userCode}-${res.data.userName}` || "",
-        //   department: `${res.data.userDepartment}` || "",
-        //   status: res.data.ticketStatus === 0 ? "Chờ xử lý" : "",
-        //   createdAt: res.data.createdAt || "",
-        // });
         message.success("Tạo ticket thành công!");
         // Reset form + editor
         form.resetFields();
@@ -1105,19 +1095,6 @@ function CreateTicketTab({
         setFileList([]);
         onCreated?.();
 
-        // ✅ 2️⃣ Gửi Teams webhook chạy nền (không ảnh hưởng UI)
-        Promise.resolve(
-          sendTeamsNotification({
-            title: res.data.ticketTitle || "N/A",
-            code: res.data.ticketCode || "N/A",
-            creator: `${res.data.userCode}-${res.data.userName}` || "",
-            department: `${res.data.userDepartment}` || "",
-            status: res.data.ticketStatus === 0 ? "Chờ xử lý" : "",
-            createdAt: res.data.createdAt || "",
-          }),
-        )
-          .then(() => console.log("Đã gửi thông báo Teams "))
-          .catch((err) => console.error(" Gửi Teams thất bại:", err));
       } else {
         message.error("Tạo ticket thất bại!");
       }

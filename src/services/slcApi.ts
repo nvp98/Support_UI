@@ -176,9 +176,6 @@ export const changeRequestApi = {
   update: (id: number, data: Partial<ChangeRequest> & { actorCode: string; actorName: string }) =>
     ApiService.put<ChangeRequest>(`${BASE}/ChangeRequest/${id}`, data),
 
-  submit: (id: number, actor: { actorCode: string; actorName: string }) =>
-    ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest/${id}/submit`, actor),
-
   accept: (id: number, data: { actorCode: string; actorName: string; expectedCompletionDate: string }) =>
     ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest/${id}/accept`, data),
 
