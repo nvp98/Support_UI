@@ -22,7 +22,6 @@ import { buildFormData } from "../utils/configs/buildFormData";
 import { hideLoading, showLoading } from "../store/loadingSlice";
 import { useDispatch } from "react-redux";
 import { ticketLogApi } from "../services/TicketLogApi";
-import { sendTeamsNotification } from "../services/ApiService";
 
 const MainLayout = () => {
   const dispatch = useDispatch();
@@ -71,14 +70,6 @@ const MainLayout = () => {
       console.log("Form Data:", formData, payload);
       const res = await ticketLogApi.createTicket(formData);
       if (res.status === 200 || res.status === 201) {
-        await sendTeamsNotification({
-          title: res.data.ticketTitle || "N/A",
-          code: res.data.ticketCode || "N/A",
-          creator: `${res.data.userCode}-${res.data.userName}` || "",
-          department: `${res.data.userDepartment}` || "",
-          status: res.data.ticketStatus === 0 ? "Chờ xử lý" : "",
-          createdAt: res.data.createdAt || "",
-        });
         message.success("Tạo ticket thành công!");
         form.resetFields();
         editorRef.current?.setContent("");
