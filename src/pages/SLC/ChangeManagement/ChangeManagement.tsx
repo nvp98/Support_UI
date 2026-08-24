@@ -762,7 +762,13 @@ export default function ChangeManagement() {
                 children: (
                   <div key={revision.id} className="text-sm">
                     <Space wrap><Tag>Rev{revision.revisionNumber}</Tag><Tag>{revision.status === 0 ? "Chờ duyệt" : revision.status === 1 ? "Đã duyệt" : "Từ chối"}</Tag><Text type="secondary">{formatDateTime(revision.createdAt)}</Text></Space>
-                    {revision.content && <div className="mt-1 text-gray-600">{revision.content}</div>}
+                    {revision.content && (
+                      <RichHtmlPreview
+                        compact
+                        html={revision.content}
+                        title={`Nội dung Rev${revision.revisionNumber}`}
+                      />
+                    )}
                     {revision.reason && <div className="mt-1 text-gray-400 text-xs">Lý do: {revision.reason}</div>}
                     {revision.impactTimeline && <Tag color="orange" className="mt-1">{revision.impactDays > 0 ? "+" : ""}{revision.impactDays} ngày</Tag>}
                   </div>

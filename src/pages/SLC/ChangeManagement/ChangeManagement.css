@@ -7,3 +7,9 @@
   min-height: 220px;
   width: 100%;
 }
+
+.change-request-rich-content--compact {
+  margin-bottom: 0.25rem;
+  margin-top: 0.25rem;
+  min-height: 180px;
+}

@@ -1,6 +1,7 @@
 interface RichHtmlPreviewProps {
   html?: string;
   title: string;
+  compact?: boolean;
 }
 
 const CONTENT_SECURITY_POLICY = [
@@ -30,10 +31,10 @@ const buildPreviewDocument = (html?: string) => `<!doctype html>
   <body>${html?.trim() || "<p>—</p>"}</body>
 </html>`;
 
-export default function RichHtmlPreview({ html, title }: RichHtmlPreviewProps) {
+export default function RichHtmlPreview({ html, title, compact = false }: RichHtmlPreviewProps) {
   return (
     <iframe
-      className="change-request-rich-content"
+      className={`change-request-rich-content${compact ? " change-request-rich-content--compact" : ""}`}
       referrerPolicy="no-referrer"
       sandbox=""
       srcDoc={buildPreviewDocument(html)}
