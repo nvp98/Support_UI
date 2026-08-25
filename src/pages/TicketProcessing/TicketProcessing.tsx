@@ -199,13 +199,6 @@ const getElapsedProcessingMinutes = (receivedAt?: string | null) => {
   return Math.max(1, Math.ceil(completedTime.diff(receivedTime, "minute", true)));
 };
 
-const hasMeaningfulRichContent = (html?: string | null) => {
-  if (!html) return false;
-
-  const document = new DOMParser().parseFromString(html, "text/html");
-  return Boolean(document.body.textContent?.trim() || document.body.querySelector("img"));
-};
-
 const getRichTextExcerpt = (html?: string | null, maxLength = 120) => {
   if (!html) return "";
 
@@ -1753,7 +1746,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       processingMinutes: getElapsedProcessingMinutes(
         completeModal.record?.receivedAt,
       ),
-      errorClassification: "OLD",
+      errorClassification: undefined,
       handlerClassification: "IT",
     });
   };
@@ -1776,11 +1769,8 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
 
       const completedNote =
         completeEditorRef.current?.getContent().trim() ||
-        values.completedNote.trim();
-      if (!hasMeaningfulRichContent(completedNote)) {
-        message.error("Vui lòng nhập ghi chú hoàn thành hoặc chèn ít nhất một ảnh!");
-        return;
-      }
+        values.completedNote?.trim() ||
+        "";
       if (completedNote.length > MAX_COMPLETED_NOTE_LENGTH) {
         message.error("Ghi chú hoàn thành không được vượt quá 100.000 ký tự!");
         return;
@@ -2402,10 +2392,6 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                       "Ghi chú hoàn thành không được vượt quá 100.000 ký tự",
                     );
                   }
-                  if (hasMeaningfulRichContent(value)) return;
-                  throw new Error(
-                    "Vui lòng nhập ghi chú hoàn thành hoặc chèn ít nhất một ảnh",
-                  );
                 },
               },
             ]}
@@ -2462,7 +2448,6 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
               <Form.Item
                 label="Phân loại lỗi"
                 name="errorClassification"
-                rules={[{ required: true, message: "Vui lòng phân loại lỗi" }]}
               >
                 <Radio.Group>
                   <Space direction="vertical">
