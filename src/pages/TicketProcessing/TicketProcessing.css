@@ -105,6 +105,11 @@
   margin-top: 2px;
 }
 
+.ticket-detail-summary-row p {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
 @media (max-width: 767px) {
   .complete-ticket-modal {
     max-width: calc(100vw - 24px);

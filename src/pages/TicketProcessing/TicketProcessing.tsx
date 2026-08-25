@@ -87,6 +87,13 @@ import type {
   CompleteTicketRequest,
   TicketLog,
 } from "../../models/ticketLog";
+import {
+  getTicketSubTypeLabel,
+  getTicketSubTypeOptions,
+  getTicketTypeColor,
+  getTicketTypeLabel,
+  TICKET_TYPE_OPTIONS,
+} from "../../utils/configs/ticketClassification";
 
 // const { Title } = Typography;
 const { Option } = Select;
@@ -159,11 +166,13 @@ const renderTicketStatusIcon = (status: string | number) => {
   );
 };
 
-const typeConfig: Record<string, { color: string; text: string }> = {
-  SOFT: { color: "red", text: "Hỗ trợ phần mềm" },
-  HARD: { color: "orange", text: "Hỗ trợ phần cứng" },
-  SAP: { color: "cyan", text: "SAP" },
-};
+const typeConfig: Record<string, { color: string; text: string }> =
+  Object.fromEntries(
+    TICKET_TYPE_OPTIONS.map(({ value, label }) => [
+      value,
+      { color: getTicketTypeColor(value), text: label },
+    ]),
+  );
 
 const errorClassificationLabels: Record<string, string> = {
   OLD: "Lỗi cũ (đã từng xảy ra)",
@@ -385,11 +394,16 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
     record: undefined,
   });
   const [editForm] = Form.useForm();
+  const editTicketType = Form.useWatch("ticketType", editForm);
   const editEditorRef = useRef<any>(null); // Ref for TinyMCE editor
   const [note, setNote] = useState("");
   const [additionalNote, setAdditionalNote] = useState("");
   // Thêm state cho bộ lọc ngày
   const [dateRange, setDateRange] = useState<any>(null);
+  const [searchText, setSearchText] = useState("");
+  const [status, setStatus] = useState<string | undefined>();
+  const [type, setType] = useState<string | undefined>();
+  const [subType, setSubType] = useState<string | undefined>();
 
   const userStr = localStorage.getItem("user");
   const userObj = userStr ? JSON.parse(userStr) : {};
@@ -422,16 +436,24 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
     const filterObj: any = {
       usercode: userObj?.maNV || "",
     };
+    if (searchText.trim()) filterObj.keyword = searchText.trim();
     if (dateRange && dateRange.length === 2) {
       filterObj.fromDate = dateRange[0].format("YYYY-MM-DD");
       filterObj.toDate = dateRange[1].format("YYYY-MM-DD");
     }
+    if (status !== undefined) filterObj.status = status;
+    if (type) filterObj.type = type;
+    if (subType) filterObj.subType = subType;
     fetchData(1, pagination.pageSize, filterObj);
   };
 
   // Xử lý khi xóa bộ lọc
   const handleClearFilter = () => {
     setDateRange(null);
+    setSearchText("");
+    setStatus(undefined);
+    setType(undefined);
+    setSubType(undefined);
     fetchData(1, pagination.pageSize, {
       usercode: userObj?.maNV || "",
     });
@@ -672,8 +694,22 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
       key: "ticketType",
       width: 40,
       ellipsis: true,
-      render: (status: string) => (
-        <text color={"default"}>{typeConfig[status]?.text || status}</text>
+      render: (ticketType: string) => (
+        <span>{getTicketTypeLabel(ticketType)}</span>
+      ),
+    },
+    {
+      title: "Hạng mục hỗ trợ",
+      dataIndex: "ticketSubType",
+      key: "ticketSubType",
+      width: 60,
+      ellipsis: true,
+      render: (ticketSubType: string | null, record: TicketLog) => (
+        <span>
+          {ticketSubType
+            ? getTicketSubTypeLabel(ticketSubType, record.ticketType)
+            : "-"}
+        </span>
       ),
     },
     {
@@ -778,7 +814,12 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={4}>
-            <Input placeholder="Mã ticket, tiêu đề..." allowClear />
+            <Input
+              placeholder="Mã ticket, tiêu đề..."
+              allowClear
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+            />
           </Col>
           <Col xs={24} sm={12} md={4}>
             <DatePicker.RangePicker
@@ -790,8 +831,13 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
             />
           </Col>
           <Col xs={24} sm={12} md={4}>
-            <Select defaultValue="all" style={{ width: "100%" }}>
-              <Option value="all">Tất cả</Option>
+            <Select
+              allowClear
+              placeholder="Trạng thái"
+              value={status}
+              style={{ width: "100%" }}
+              onChange={setStatus}
+            >
               <Option value="0">Chờ tiếp nhận</Option>
               <Option value="1">Đang xử lý</Option>
               <Option value="2">Hoàn tất</Option>
@@ -799,11 +845,27 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
             </Select>
           </Col>
           <Col xs={24} sm={12} md={4}>
-            <Select defaultValue="all" style={{ width: "100%" }}>
-              <Option value="SOFT">Hỗ trợ phần mềm</Option>
-              <Option value="HARD">Hỗ trợ phần cứng</Option>
-              <Option value="SAP">SAP</Option>
-            </Select>
+            <Select
+              allowClear
+              options={TICKET_TYPE_OPTIONS}
+              placeholder="Loại yêu cầu"
+              value={type}
+              style={{ width: "100%" }}
+              onChange={(value) => {
+                setType(value);
+                setSubType(undefined);
+              }}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={4}>
+            <Select
+              allowClear
+              options={getTicketSubTypeOptions(type)}
+              placeholder="Hạng mục hỗ trợ"
+              value={subType}
+              style={{ width: "100%" }}
+              onChange={setSubType}
+            />
           </Col>
 
           <Col>
@@ -842,7 +904,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
           scroll={{ x: "max-content", y: 500 }}
           summary={() => (
             <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={12} align="right">
+              <Table.Summary.Cell index={0} colSpan={13} align="right">
                 <span style={{ fontWeight: 500 }}>
                   Tổng: {pagination.total} ticket
                 </span>
@@ -876,11 +938,34 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
             name="ticketType"
             rules={[{ required: true, message: "Chọn loại yêu cầu" }]}
           >
-            <Select>
-              <Option value="SOFT">Hỗ trợ phần mềm</Option>
-              <Option value="HARD">Hỗ trợ phần cứng</Option>
-              <Option value="SAP">SAP</Option>
+            <Select
+              onChange={() =>
+                editForm.setFieldValue("ticketSubType", undefined)
+              }
+            >
+              {TICKET_TYPE_OPTIONS.map((option) => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
             </Select>
+          </Form.Item>
+          <Form.Item
+            label="Hạng mục hỗ trợ"
+            name="ticketSubType"
+            dependencies={["ticketType"]}
+            rules={[
+              {
+                required: getTicketSubTypeOptions(editTicketType).length > 0,
+                message: "Chọn hạng mục hỗ trợ",
+              },
+            ]}
+          >
+            <Select
+              allowClear
+              options={getTicketSubTypeOptions(editTicketType)}
+              placeholder="Chọn hạng mục hỗ trợ"
+            />
           </Form.Item>
           <Form.Item
             label="Nội dung yêu cầu"
@@ -1052,8 +1137,12 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
                 </p>
               </Col>
             </Row>
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={12}>
+            <Row
+              className="ticket-detail-summary-row"
+              gutter={[16, 8]}
+              style={{ marginBottom: 16 }}
+            >
+              <Col xs={24} md={8}>
                 <p>
                   <strong>Loại yêu cầu:</strong>{" "}
                   <Tag color={typeConfig[viewModal.record.ticketType]?.color}>
@@ -1061,7 +1150,18 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
                   </Tag>
                 </p>
               </Col>
-              <Col span={12}>
+              <Col xs={24} md={8}>
+                <p>
+                  <strong>Hạng mục hỗ trợ:</strong>{" "}
+                  {viewModal.record.ticketSubType
+                    ? getTicketSubTypeLabel(
+                        viewModal.record.ticketSubType,
+                        viewModal.record.ticketType,
+                      )
+                    : "-"}
+                </p>
+              </Col>
+              <Col xs={24} md={8}>
                 <p>
                   <strong>Ngày tạo:</strong>{" "}
                   {viewModal.record.createdAt
@@ -1163,6 +1263,7 @@ function CreateTicketTab({
 }) {
   const dispatch = useDispatch();
   const [form] = Form.useForm();
+  const createTicketType = Form.useWatch("type", form);
   const [fileList, setFileList] = useState([]);
   const editorRef = useRef<any>(null); // <- khai báo editorRef
 
@@ -1185,6 +1286,7 @@ function CreateTicketTab({
       const payload = {
         ticketTitle: values.title || "",
         ticketType: values.type || "",
+        ticketSubType: values.subType || null,
         ticketContent: html || "", // nội dung rich text
         uploadedFile: fileList?.length > 0 ? fileList[0] : null, // 1 file
         userCode: userObj.maNV || "",
@@ -1232,7 +1334,7 @@ function CreateTicketTab({
             initialValues={{}}
           >
             <Row gutter={16}>
-              <Col span={12} xs={24} sm={24} md={12}>
+              <Col xs={24} md={8}>
                 <Form.Item
                   label="Tiêu đề yêu cầu"
                   name="title"
@@ -1241,7 +1343,7 @@ function CreateTicketTab({
                   <Input placeholder="Nhập tiêu đề" />
                 </Form.Item>
               </Col>
-              <Col span={12} xs={24} sm={24} md={12}>
+              <Col xs={24} md={8}>
                 <Form.Item
                   label="Loại yêu cầu"
                   name="type"
@@ -1249,11 +1351,36 @@ function CreateTicketTab({
                     { required: true, message: "Vui lòng chọn loại yêu cầu" },
                   ]}
                 >
-                  <Select placeholder="Chọn loại yêu cầu">
-                    <Option value="SOFT">Hỗ trợ phần mềm</Option>
-                    <Option value="HARD">Hỗ trợ phần cứng</Option>
-                    <Option value="SAP">SAP</Option>
+                  <Select
+                    placeholder="Chọn loại yêu cầu"
+                    onChange={() => form.setFieldValue("subType", undefined)}
+                  >
+                    {TICKET_TYPE_OPTIONS.map((option) => (
+                      <Option key={option.value} value={option.value}>
+                        {option.label}
+                      </Option>
+                    ))}
                   </Select>
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Hạng mục hỗ trợ"
+                  name="subType"
+                  dependencies={["type"]}
+                  rules={[
+                    {
+                      required:
+                        getTicketSubTypeOptions(createTicketType).length > 0,
+                      message: "Vui lòng chọn hạng mục hỗ trợ",
+                    },
+                  ]}
+                >
+                  <Select
+                    allowClear
+                    options={getTicketSubTypeOptions(createTicketType)}
+                    placeholder="Chọn hạng mục hỗ trợ"
+                  />
                 </Form.Item>
               </Col>
             </Row>
@@ -1439,6 +1566,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   const [searchText, setSearchText] = useState("");
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
+  const [subType, setSubType] = useState("all");
   const [note, setNote] = useState(""); // ✅ state để lưu nội dung ghi chú
   const [additionalNote, setAdditionalNote] = useState("");
   const [onlyMyTicket, setOnlyMyTicket] = useState(false);
@@ -1536,6 +1664,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     }
     if (status !== "all") filterObj.status = status;
     if (type !== "all") filterObj.type = type;
+    if (subType !== "all") filterObj.subType = subType;
     if (onlyMyTicket) filterObj.userAssigneeCode = userObj?.maNV;
     // Lưu filter vào Redux để component cha dùng export
     if (filterObj && Object.keys(filterObj).length > 0)
@@ -1567,6 +1696,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     dateRange,
     status,
     type,
+    subType,
     onlyMyTicket,
     pagination.current,
     pagination.pageSize,
@@ -1744,6 +1874,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     setDateRange(null);
     setStatus("all");
     setType("all");
+    setSubType("all");
     setOnlyMyTicket(false);
     const filterObj: any = {};
     dispatch(clearTicketFilter());
@@ -1960,8 +2091,22 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       key: "ticketType",
       width: 40,
       ellipsis: true,
-      render: (status: string) => (
-        <text color={"default"}>{typeConfig[status]?.text || status}</text>
+      render: (ticketType: string) => (
+        <span>{getTicketTypeLabel(ticketType)}</span>
+      ),
+    },
+    {
+      title: "Hạng mục hỗ trợ",
+      dataIndex: "ticketSubType",
+      key: "ticketSubType",
+      width: 60,
+      ellipsis: true,
+      render: (ticketSubType: string | null, record: TicketLog) => (
+        <span>
+          {ticketSubType
+            ? getTicketSubTypeLabel(ticketSubType, record.ticketType)
+            : "-"}
+        </span>
       ),
     },
     {
@@ -2096,11 +2241,34 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
             </Select>
           </Col>
           <Col xs={24} sm={12} md={4}>
-            <Select value={type} style={{ width: "100%" }} onChange={setType}>
+            <Select
+              value={type}
+              style={{ width: "100%" }}
+              onChange={(value) => {
+                setType(value);
+                setSubType("all");
+              }}
+            >
               <Option value="all">Tất cả</Option>
-              <Option value="SOFT">Hỗ trợ phần mềm</Option>
-              <Option value="HARD">Hỗ trợ phần cứng</Option>
-              <Option value="SAP">SAP</Option>
+              {TICKET_TYPE_OPTIONS.map((option) => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={4}>
+            <Select
+              value={subType}
+              style={{ width: "100%" }}
+              onChange={setSubType}
+            >
+              <Option value="all">Tất cả hạng mục</Option>
+              {getTicketSubTypeOptions(type).map((option) => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
             </Select>
           </Col>
           <Col>
@@ -2152,7 +2320,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
           scroll={{ x: 1500, y: 600 }}
           summary={() => (
             <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={11} align="right">
+              <Table.Summary.Cell index={0} colSpan={12} align="right">
                 <span style={{ fontWeight: 500 }}>
                   Tổng: {pagination.total} ticket
                 </span>
@@ -2489,8 +2657,12 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                 </p>
               </Col>
             </Row>
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={12}>
+            <Row
+              className="ticket-detail-summary-row"
+              gutter={[16, 8]}
+              style={{ marginBottom: 16 }}
+            >
+              <Col xs={24} md={8}>
                 <p>
                   <strong>Loại yêu cầu:</strong>{" "}
                   <Tag color={typeConfig[viewModal.record.ticketType]?.color}>
@@ -2498,7 +2670,18 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                   </Tag>
                 </p>
               </Col>
-              <Col span={12}>
+              <Col xs={24} md={8}>
+                <p>
+                  <strong>Hạng mục hỗ trợ:</strong>{" "}
+                  {viewModal.record.ticketSubType
+                    ? getTicketSubTypeLabel(
+                        viewModal.record.ticketSubType,
+                        viewModal.record.ticketType,
+                      )
+                    : "-"}
+                </p>
+              </Col>
+              <Col xs={24} md={8}>
                 <p>
                   <strong>Ngày tạo:</strong>{" "}
                   {viewModal.record.createdAt

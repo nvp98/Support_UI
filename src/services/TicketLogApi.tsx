@@ -18,6 +18,7 @@ export const ticketLogApi = {
       fromDate?: string; // yyyy-MM-dd
       toDate?: string; // yyyy-MM-dd
       type?: string;
+      subType?: string;
       userAssigneeCode?: string;
     } = {},
   ) => {
@@ -33,6 +34,7 @@ export const ticketLogApi = {
       ...(filters.toDate && { toDate: filters.toDate }),
       ...(filters.usercode && { usercode: filters.usercode }),
       ...(filters.type && { type: filters.type }),
+      ...(filters.subType && { subType: filters.subType }),
       ...(filters.userAssigneeCode && {
         userAssigneeCode: filters.userAssigneeCode,
       }),

@@ -14,6 +14,11 @@ import { Column, Pie } from "@ant-design/charts";
 import dayjs from "dayjs";
 import { ticketLogApi } from "../../services/TicketLogApi";
 import type { TicketLog } from "../../models/ticketLog";
+import {
+  getTicketSubTypeOptions,
+  getTicketTypeLabel,
+  TICKET_TYPE_OPTIONS,
+} from "../../utils/configs/ticketClassification";
 const { RangePicker } = DatePicker;
 
 const ticketColumns = [
@@ -100,6 +105,9 @@ const Dashboard = () => {
   const [typeFilter, setTypeFilter] = React.useState<string | undefined>(
     undefined,
   );
+  const [subTypeFilter, setSubTypeFilter] = React.useState<
+    string | undefined
+  >(undefined);
   const [statusFilter, setStatusFilter] = React.useState<number | undefined>(
     undefined,
   );
@@ -168,11 +176,14 @@ const Dashboard = () => {
         ? (it.userDepartment || "") === departmentFilter
         : true;
       const typeOk = typeFilter ? (it.ticketType || "") === typeFilter : true;
+      const subTypeOk = subTypeFilter
+        ? (it.ticketSubType || "") === subTypeFilter
+        : true;
       const statusOk =
         statusFilter !== undefined
           ? Number(it.ticketStatus) === Number(statusFilter)
           : true;
-      return depOk && typeOk && statusOk;
+      return depOk && typeOk && subTypeOk && statusOk;
     });
     setTotalCount(filtered.length);
     const statusCounts: Record<string, number> = {
@@ -205,7 +216,7 @@ const Dashboard = () => {
     );
     const typeMap: Record<string, number> = {};
     filtered.forEach((it) => {
-      const k = it.ticketType || "Khác";
+      const k = it.ticketType ? getTicketTypeLabel(it.ticketType) : "Khác";
       typeMap[k] = (typeMap[k] || 0) + 1;
     });
     setTypeData(
@@ -236,7 +247,7 @@ const Dashboard = () => {
       const y = (
         it.createdAt ? dayjs(it.createdAt).year() : dayjs().year()
       ).toString();
-      const tp = it.ticketType || "Khác";
+      const tp = it.ticketType ? getTicketTypeLabel(it.ticketType) : "Khác";
       const k = `${y}|${tp}`;
       yearType[k] = (yearType[k] || 0) + 1;
     });
@@ -278,7 +289,13 @@ const Dashboard = () => {
 
   React.useEffect(() => {
     computeStats(tickets);
-  }, [granularity, departmentFilter, typeFilter, statusFilter]);
+  }, [
+    granularity,
+    departmentFilter,
+    typeFilter,
+    subTypeFilter,
+    statusFilter,
+  ]);
 
   const columnConfig = {
     data: statusChartData,
@@ -485,13 +502,24 @@ const Dashboard = () => {
         <Col xs={24} md={3}>
           <Select
             allowClear
-            placeholder="Loại"
+            placeholder="Loại yêu cầu"
             value={typeFilter}
-            onChange={setTypeFilter}
+            onChange={(value) => {
+              setTypeFilter(value);
+              setSubTypeFilter(undefined);
+            }}
             style={{ width: "100%" }}
-            options={[
-              ...new Set(tickets.map((t) => t.ticketType || "Khác")),
-            ].map((d) => ({ label: d, value: d }))}
+            options={TICKET_TYPE_OPTIONS}
+          />
+        </Col>
+        <Col xs={24} md={3}>
+          <Select
+            allowClear
+            placeholder="Hạng mục hỗ trợ"
+            value={subTypeFilter}
+            onChange={setSubTypeFilter}
+            style={{ width: "100%" }}
+            options={getTicketSubTypeOptions(typeFilter)}
           />
         </Col>
         <Col xs={24} md={3}>

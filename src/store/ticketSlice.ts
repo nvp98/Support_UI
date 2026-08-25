@@ -6,6 +6,7 @@ interface TicketFilterState {
   toDate?: string;
   status?: string;
   type?: string;
+  subType?: string;
   userAssigneeCode?: string;
 }
 

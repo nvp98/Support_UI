@@ -1,5 +1,18 @@
 export type TicketErrorClassification = "OLD" | "NEW";
 export type TicketHandlerClassification = "IT" | "NT";
+export type TicketType = "SOFT" | "HARD" | "SAP";
+export type TicketSubType =
+  | "EOFFICE"
+  | "MS365"
+  | "BK_SOFTWARE"
+  | "ACCESS_CONTROL"
+  | "WINDOWS_INSTALL"
+  | "OTHER_SOFTWARE"
+  | "CAMERA"
+  | "PRINTER"
+  | "RAM_REPLACEMENT"
+  | "DRIVE_REPLACEMENT"
+  | "OTHER_HARDWARE";
 
 export interface CompleteTicketRequest {
   completedNote: string;
@@ -13,7 +26,8 @@ export interface TicketLog {
   ticketId: number;
   ticketCode: string;
   ticketTitle: string;
-  ticketType: string;
+  ticketType: TicketType;
+  ticketSubType?: TicketSubType | null;
   ticketContent?: string;
   ticketStatus: number;
   fileAttachments?: string;
