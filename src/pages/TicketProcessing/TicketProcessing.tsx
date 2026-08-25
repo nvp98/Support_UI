@@ -20,6 +20,8 @@ import {
   Modal,
   Tooltip,
   Checkbox,
+  InputNumber,
+  Radio,
 } from "antd";
 import {
   SearchOutlined,
@@ -46,10 +48,12 @@ import {
   MailOutlined,
   IdcardOutlined,
   HomeOutlined,
+  PictureOutlined,
 } from "@ant-design/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Editor } from "@tinymce/tinymce-react";
+import type { Editor as TinyMceEditor } from "tinymce";
 import "./TicketProcessing.css";
 
 // Core
@@ -78,7 +82,11 @@ import { UploadApi } from "../../services/UploadApi";
 import { clearTicketFilter, setTicketFilter } from "../../store/ticketSlice";
 import type { RootState } from "../../store";
 import supportStaffData from "../../utils/configs/json_info_user.json";
-// import type { TicketLog } from "../../models/ticketLog";
+import RichHtmlPreview from "../SLC/ChangeManagement/RichHtmlPreview";
+import type {
+  CompleteTicketRequest,
+  TicketLog,
+} from "../../models/ticketLog";
 
 // const { Title } = Typography;
 const { Option } = Select;
@@ -156,6 +164,100 @@ const typeConfig: Record<string, { color: string; text: string }> = {
   HARD: { color: "orange", text: "Hỗ trợ phần cứng" },
   SAP: { color: "cyan", text: "SAP" },
 };
+
+const errorClassificationLabels: Record<string, string> = {
+  OLD: "Lỗi cũ (đã từng xảy ra)",
+  NEW: "Lỗi mới (lần đầu phát sinh)",
+};
+
+const handlerClassificationLabels: Record<string, string> = {
+  IT: "IT xử lý",
+  NT: "NT xử lý",
+};
+
+type CompleteTicketFormValues = CompleteTicketRequest;
+const MAX_COMPLETED_NOTE_LENGTH = 100_000;
+
+const getElapsedProcessingMinutes = (receivedAt?: string | null) => {
+  if (!receivedAt) return undefined;
+
+  const receivedTime = dayjs(receivedAt);
+  const completedTime = dayjs();
+  if (!receivedTime.isValid() || receivedTime.isAfter(completedTime)) {
+    return undefined;
+  }
+
+  return Math.max(1, Math.ceil(completedTime.diff(receivedTime, "minute", true)));
+};
+
+const hasMeaningfulRichContent = (html?: string | null) => {
+  if (!html) return false;
+
+  const document = new DOMParser().parseFromString(html, "text/html");
+  return Boolean(document.body.textContent?.trim() || document.body.querySelector("img"));
+};
+
+const getRichTextExcerpt = (html?: string | null, maxLength = 120) => {
+  if (!html) return "";
+
+  const document = new DOMParser().parseFromString(html, "text/html");
+  const text = document.body.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
+};
+
+function CompletionInformation({ record }: { record: Partial<TicketLog> }) {
+  const hasCompletionInformation =
+    Number(record.ticketStatus) === 2 ||
+    Boolean(
+      record.completedNote ||
+        record.processingMinutes ||
+        record.errorClassification ||
+        record.handlerClassification,
+    );
+
+  if (!hasCompletionInformation) return null;
+
+  return (
+    <section className="ticket-completion-information">
+      <Row gutter={[16, 12]} className="ticket-completion-metadata">
+        <Col span={24}>
+          <p>
+            <strong>Thời gian xử lý:</strong>{" "}
+            {record.processingMinutes != null
+              ? `${record.processingMinutes} phút`
+              : "—"}
+          </p>
+        </Col>
+        <Col xs={24} md={12}>
+          <p>
+            <strong>Phân loại lỗi:</strong>{" "}
+            {record.errorClassification
+              ? errorClassificationLabels[record.errorClassification] ||
+                record.errorClassification
+              : "—"}
+          </p>
+        </Col>
+        <Col xs={24} md={12}>
+          <p>
+            <strong>Phân loại xử lý:</strong>{" "}
+            {record.handlerClassification
+              ? handlerClassificationLabels[record.handlerClassification] ||
+                record.handlerClassification
+              : "—"}
+          </p>
+        </Col>
+      </Row>
+      <p>
+        <strong>Ghi chú hoàn thành:</strong>
+      </p>
+      <RichHtmlPreview
+        compact
+        html={record.completedNote ?? undefined}
+        title="Ghi chú hoàn thành"
+      />
+    </section>
+  );
+}
 
 const supportGroupConfig: Record<
   string,
@@ -612,12 +714,24 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
         const canAddNote =
           record.ticketStatus === 1 &&
           userObj?.maNV === record.userAssigneeCode;
+        const completedNoteExcerpt = getRichTextExcerpt(record.completedNote);
+        const noteOverview = record.completedNote ? completedNoteExcerpt : value;
+        const completedNoteHasImage = /<img\b/i.test(record.completedNote || "");
 
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ whiteSpace: "pre-wrap" }}>
-              {value || <span style={{ color: "#aaa" }}>-</span>}
-            </span>
+            <div className="ticket-note-overview">
+              {noteOverview ? (
+                <span style={{ whiteSpace: "pre-wrap" }}>{noteOverview}</span>
+              ) : !completedNoteHasImage ? (
+                <span style={{ color: "#aaa" }}>-</span>
+              ) : null}
+              {completedNoteHasImage && (
+                <Tooltip title="Ghi chú hoàn thành có hình ảnh">
+                  <PictureOutlined className="ticket-note-image-icon" />
+                </Tooltip>
+              )}
+            </div>
             {canAddNote && (
               <Button
                 type="link"
@@ -1004,6 +1118,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
                 </Col>
               </Row>
             )}
+            <CompletionInformation record={viewModal.record} />
           </div>
         )}
       </Modal>
@@ -1327,6 +1442,10 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   const [note, setNote] = useState(""); // ✅ state để lưu nội dung ghi chú
   const [additionalNote, setAdditionalNote] = useState("");
   const [onlyMyTicket, setOnlyMyTicket] = useState(false);
+  const [completeForm] = Form.useForm<CompleteTicketFormValues>();
+  const completeEditorRef = useRef<TinyMceEditor | null>(null);
+  const [processingMinutesEdited, setProcessingMinutesEdited] = useState(false);
+  const [completeSubmitting, setCompleteSubmitting] = useState(false);
 
   const userStr = localStorage.getItem("user");
   const userObj = userStr ? JSON.parse(userStr) : {};
@@ -1496,38 +1615,71 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   const handleComplete = (record: any) => {
     setCompleteModal({ open: true, record });
   };
-  const handleCompleteFinish = async () => {
-    try {
-      const record = completeModal.record;
-      const newNoteText = note.trim() || "hoàn thành!";
-      const latestNote = newNoteText;
 
-      // ✅ Gọi API "Hoàn tất ticket"
+  const initializeCompleteForm = () => {
+    setProcessingMinutesEdited(false);
+    completeForm.setFieldsValue({
+      completedNote: "",
+      processingMinutes: getElapsedProcessingMinutes(
+        completeModal.record?.receivedAt,
+      ),
+      errorClassification: "OLD",
+      handlerClassification: "IT",
+    });
+  };
+
+  const closeCompleteModal = () => {
+    if (completeSubmitting) return;
+    setCompleteModal({ open: false, record: undefined });
+    setProcessingMinutesEdited(false);
+    completeEditorRef.current = null;
+    completeForm.resetFields();
+  };
+
+  const handleCompleteFinish = async (values: CompleteTicketFormValues) => {
+    const record = completeModal.record;
+    if (!record || completeSubmitting) return;
+
+    setCompleteSubmitting(true);
+    try {
+      await completeEditorRef.current?.uploadImages();
+
+      const completedNote =
+        completeEditorRef.current?.getContent().trim() ||
+        values.completedNote.trim();
+      if (!hasMeaningfulRichContent(completedNote)) {
+        message.error("Vui lòng nhập ghi chú hoàn thành hoặc chèn ít nhất một ảnh!");
+        return;
+      }
+      if (completedNote.length > MAX_COMPLETED_NOTE_LENGTH) {
+        message.error("Ghi chú hoàn thành không được vượt quá 100.000 ký tự!");
+        return;
+      }
+
+      const automaticMinutes = getElapsedProcessingMinutes(record.receivedAt);
+      const processingMinutes = processingMinutesEdited
+        ? values.processingMinutes
+        : automaticMinutes ?? values.processingMinutes;
+
       await ticketLogApi.completeTicket(record.ticketId, {
-        note: latestNote,
+        completedNote,
+        processingMinutes,
+        errorClassification: values.errorClassification,
+        handlerClassification: values.handlerClassification,
       });
 
       setCompleteModal({ open: false, record: undefined });
-      setNote("");
-      message.success("Ticket đã được hoàn tất!");
+      setProcessingMinutesEdited(false);
+      completeEditorRef.current = null;
+      completeForm.resetFields();
+      message.success("Ticket đã được hoàn thành!");
 
-      setData((prev) =>
-        prev.map((item) =>
-          item.ticketId === record.ticketId
-            ? {
-                ...item,
-                note: latestNote,
-                approvedAt: new Date().toISOString(),
-              }
-            : item,
-        ),
-      );
-
-      // ✅ Reload lại data từ server để cập nhật đúng trạng thái và nút thao tác
       await fetchData(pagination.current, pagination.pageSize, filters);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Lỗi hoàn tất ticket:", error);
       message.error("Không thể hoàn tất ticket. Vui lòng thử lại!");
+    } finally {
+      setCompleteSubmitting(false);
     }
   };
 
@@ -1850,12 +2002,24 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
         const canAddNote =
           record.ticketStatus === 1 &&
           userObj?.maNV === record.userAssigneeCode;
+        const completedNoteExcerpt = getRichTextExcerpt(record.completedNote);
+        const noteOverview = record.completedNote ? completedNoteExcerpt : value;
+        const completedNoteHasImage = /<img\b/i.test(record.completedNote || "");
 
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ whiteSpace: "pre-wrap" }}>
-              {value || <span style={{ color: "#aaa" }}>-</span>}
-            </span>
+            <div className="ticket-note-overview">
+              {noteOverview ? (
+                <span style={{ whiteSpace: "pre-wrap" }}>{noteOverview}</span>
+              ) : !completedNoteHasImage ? (
+                <span style={{ color: "#aaa" }}>-</span>
+              ) : null}
+              {completedNoteHasImage && (
+                <Tooltip title="Ghi chú hoàn thành có hình ảnh">
+                  <PictureOutlined className="ticket-note-image-icon" />
+                </Tooltip>
+              )}
+            </div>
             {canAddNote && (
               <Button
                 type="link"
@@ -2020,33 +2184,144 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
         </p>
       </Modal>
       <Modal
-        open={completeModal.open}
-        title="Xác nhận hoàn tất ticket"
-        onCancel={() => setCompleteModal({ open: false, record: undefined })}
+        afterOpenChange={(open) => {
+          if (open) initializeCompleteForm();
+        }}
+        centered
+        className="complete-ticket-modal"
+        closable={!completeSubmitting}
+        destroyOnClose
         footer={[
           <Button
             key="cancel"
-            onClick={() => setCompleteModal({ open: false, record: undefined })}
+            disabled={completeSubmitting}
+            onClick={closeCompleteModal}
           >
             Hủy
           </Button>,
-          <Button key="ok" type="primary" onClick={handleCompleteFinish}>
-            Xác nhận hoàn tất
+          <Button
+            key="ok"
+            loading={completeSubmitting}
+            onClick={() => completeForm.submit()}
+            type="primary"
+          >
+            Xác nhận hoàn thành
           </Button>,
         ]}
-        destroyOnClose
+        keyboard={!completeSubmitting}
+        maskClosable={!completeSubmitting}
+        onCancel={closeCompleteModal}
+        open={completeModal.open}
+        title="Xác nhận hoàn tất ticket"
+        width={1000}
       >
-        <p>Bạn có chắc chắn muốn xác nhận hoàn tất ticket này?</p>
-        <p>
-          <b>{completeModal.record?.title}</b>
-        </p>
-        {/* ✅ Ô nhập ghi chú */}
-        <Input.TextArea
-          rows={3}
-          placeholder="Nhập ghi chú hoàn tất (bắt buộc)"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
+        <Form
+          disabled={completeSubmitting}
+          form={completeForm}
+          layout="vertical"
+          onFinish={handleCompleteFinish}
+          requiredMark
+        >
+          <Form.Item
+            getValueFromEvent={(content) => content}
+            label="Ghi chú hoàn tất"
+            name="completedNote"
+            rules={[
+              {
+                validator: async (_, value: string) => {
+                  if (value?.length > MAX_COMPLETED_NOTE_LENGTH) {
+                    throw new Error(
+                      "Ghi chú hoàn thành không được vượt quá 100.000 ký tự",
+                    );
+                  }
+                  if (hasMeaningfulRichContent(value)) return;
+                  throw new Error(
+                    "Vui lòng nhập ghi chú hoàn thành hoặc chèn ít nhất một ảnh",
+                  );
+                },
+              },
+            ]}
+            trigger="onEditorChange"
+          >
+            <Editor
+              onInit={(_evt, editor) => {
+                completeEditorRef.current = editor;
+              }}
+              init={{
+                height: 320,
+                skin_url: "/tinymce/skins/ui/oxide",
+                content_css: "/tinymce/skins/content/default/content.min.css",
+                language: "vi",
+                plugins: "link image table lists code",
+                toolbar:
+                  "undo redo | bold italic | alignleft aligncenter alignright | image | code",
+                paste_data_images: true,
+                automatic_uploads: true,
+                convert_urls: false,
+                relative_urls: false,
+                remove_script_host: false,
+                images_upload_url: UploadApi.postLinkImages,
+                images_file_types: "jpg,jpeg,png,gif,webp",
+                branding: false,
+                menubar: true,
+                placeholder:
+                  "Nhập nội dung ghi chú. Bạn có thể chèn văn bản, hình ảnh và định dạng trực tiếp tại đây...",
+              }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Thời gian xử lý"
+            name="processingMinutes"
+            rules={[
+              { required: true, message: "Vui lòng nhập thời gian xử lý" },
+              { type: "integer", message: "Thời gian phải là số phút nguyên" },
+              { type: "number", min: 1, message: "Thời gian phải từ 1 phút" },
+            ]}
+          >
+            <InputNumber
+              addonAfter="phút"
+              min={1}
+              onChange={() => setProcessingMinutesEdited(true)}
+              precision={0}
+              placeholder="Nhập số phút"
+              style={{ width: 260 }}
+            />
+          </Form.Item>
+
+          <Row className="complete-ticket-classifications" gutter={[32, 16]}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Phân loại lỗi"
+                name="errorClassification"
+                rules={[{ required: true, message: "Vui lòng phân loại lỗi" }]}
+              >
+                <Radio.Group>
+                  <Space direction="vertical">
+                    <Radio value="OLD">Lỗi cũ (đã từng xảy ra)</Radio>
+                    <Radio value="NEW">Lỗi mới (lần đầu phát sinh)</Radio>
+                  </Space>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Phân loại xử lý"
+                name="handlerClassification"
+                rules={[
+                  { required: true, message: "Vui lòng phân loại xử lý" },
+                ]}
+              >
+                <Radio.Group>
+                  <Space direction="vertical">
+                    <Radio value="IT">IT xử lý</Radio>
+                    <Radio value="NT">NT xử lý</Radio>
+                  </Space>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
       </Modal>
       {/* Modal Xóa / Hủy ticket (dùng chung như MyTicketsTab) */}
       <Modal
@@ -2281,6 +2556,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                 </Col>
               </Row>
             )}
+            <CompletionInformation record={viewModal.record} />
           </div>
         )}
       </Modal>

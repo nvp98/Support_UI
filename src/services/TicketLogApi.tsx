@@ -1,4 +1,8 @@
-import type { PagedResponse, TicketLog } from "../models/ticketLog";
+import type {
+  CompleteTicketRequest,
+  PagedResponse,
+  TicketLog,
+} from "../models/ticketLog";
 import apiService from "./ApiService";
 
 // config sample
@@ -55,8 +59,8 @@ export const ticketLogApi = {
     }),
 
   // PUT: cập nhật hoàn tất ticket
-  completeTicket: (id: number, data: any) =>
-    apiService.put(`/api/TicketLogs/completed/${id}`, data, {
+  completeTicket: (id: number, data: CompleteTicketRequest) =>
+    apiService.put<TicketLog>(`/api/TicketLogs/completed/${id}`, data, {
       headers: { "Content-Type": "application/json" },
     }),
 

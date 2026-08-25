@@ -1,3 +1,13 @@
+export type TicketErrorClassification = "OLD" | "NEW";
+export type TicketHandlerClassification = "IT" | "NT";
+
+export interface CompleteTicketRequest {
+  completedNote: string;
+  processingMinutes: number;
+  errorClassification: TicketErrorClassification;
+  handlerClassification: TicketHandlerClassification;
+}
+
 // Một bản ghi Ticket
 export interface TicketLog {
   ticketId: number;
@@ -18,6 +28,10 @@ export interface TicketLog {
   receivedAt?: string | null; // Thời gian tiếp nhận
   approvedAt?: string | null; // Thời gian hoàn thành
   note?: string;
+  completedNote?: string | null;
+  processingMinutes?: number | null;
+  errorClassification?: TicketErrorClassification | null;
+  handlerClassification?: TicketHandlerClassification | null;
 }
 
 // Response dạng phân trang
