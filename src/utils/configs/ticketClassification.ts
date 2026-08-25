@@ -22,7 +22,7 @@ export const TICKET_CLASSIFICATIONS: TicketTypeOption[] = [
     color: "red",
     children: [
       { value: "EOFFICE", label: "EOffice" },
-      { value: "MS365", label: "MS 365" },
+      { value: "MS365", label: "MS 365 (teams, mail,...)" },
       { value: "BK_SOFTWARE", label: "Phần mềm BK" },
       { value: "ACCESS_CONTROL", label: "AccessControl" },
       { value: "WINDOWS_INSTALL", label: "Cài Win" },
