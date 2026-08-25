@@ -20,6 +20,8 @@ import {
   Modal,
   Tooltip,
   Checkbox,
+  InputNumber,
+  Radio,
 } from "antd";
 import {
   SearchOutlined,
@@ -46,10 +48,12 @@ import {
   MailOutlined,
   IdcardOutlined,
   HomeOutlined,
+  PictureOutlined,
 } from "@ant-design/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Editor } from "@tinymce/tinymce-react";
+import type { Editor as TinyMceEditor } from "tinymce";
 import "./TicketProcessing.css";
 
 // Core
@@ -78,7 +82,18 @@ import { UploadApi } from "../../services/UploadApi";
 import { clearTicketFilter, setTicketFilter } from "../../store/ticketSlice";
 import type { RootState } from "../../store";
 import supportStaffData from "../../utils/configs/json_info_user.json";
-// import type { TicketLog } from "../../models/ticketLog";
+import RichHtmlPreview from "../SLC/ChangeManagement/RichHtmlPreview";
+import type {
+  CompleteTicketRequest,
+  TicketLog,
+} from "../../models/ticketLog";
+import {
+  getTicketSubTypeLabel,
+  getTicketSubTypeOptions,
+  getTicketTypeColor,
+  getTicketTypeLabel,
+  TICKET_TYPE_OPTIONS,
+} from "../../utils/configs/ticketClassification";
 
 // const { Title } = Typography;
 const { Option } = Select;
@@ -151,11 +166,107 @@ const renderTicketStatusIcon = (status: string | number) => {
   );
 };
 
-const typeConfig: Record<string, { color: string; text: string }> = {
-  SOFT: { color: "red", text: "Hỗ trợ phần mềm" },
-  HARD: { color: "orange", text: "Hỗ trợ phần cứng" },
-  SAP: { color: "cyan", text: "SAP" },
+const typeConfig: Record<string, { color: string; text: string }> =
+  Object.fromEntries(
+    TICKET_TYPE_OPTIONS.map(({ value, label }) => [
+      value,
+      { color: getTicketTypeColor(value), text: label },
+    ]),
+  );
+
+const errorClassificationLabels: Record<string, string> = {
+  OLD: "Lỗi cũ (đã từng xảy ra)",
+  NEW: "Lỗi mới (lần đầu phát sinh)",
 };
+
+const handlerClassificationLabels: Record<string, string> = {
+  IT: "IT xử lý",
+  NT: "NT xử lý",
+};
+
+type CompleteTicketFormValues = CompleteTicketRequest;
+const MAX_COMPLETED_NOTE_LENGTH = 100_000;
+
+const getElapsedProcessingMinutes = (receivedAt?: string | null) => {
+  if (!receivedAt) return undefined;
+
+  const receivedTime = dayjs(receivedAt);
+  const completedTime = dayjs();
+  if (!receivedTime.isValid() || receivedTime.isAfter(completedTime)) {
+    return undefined;
+  }
+
+  return Math.max(1, Math.ceil(completedTime.diff(receivedTime, "minute", true)));
+};
+
+const hasMeaningfulRichContent = (html?: string | null) => {
+  if (!html) return false;
+
+  const document = new DOMParser().parseFromString(html, "text/html");
+  return Boolean(document.body.textContent?.trim() || document.body.querySelector("img"));
+};
+
+const getRichTextExcerpt = (html?: string | null, maxLength = 120) => {
+  if (!html) return "";
+
+  const document = new DOMParser().parseFromString(html, "text/html");
+  const text = document.body.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
+};
+
+function CompletionInformation({ record }: { record: Partial<TicketLog> }) {
+  const hasCompletionInformation =
+    Number(record.ticketStatus) === 2 ||
+    Boolean(
+      record.completedNote ||
+        record.processingMinutes ||
+        record.errorClassification ||
+        record.handlerClassification,
+    );
+
+  if (!hasCompletionInformation) return null;
+
+  return (
+    <section className="ticket-completion-information">
+      <Row gutter={[16, 12]} className="ticket-completion-metadata">
+        <Col span={24}>
+          <p>
+            <strong>Thời gian xử lý:</strong>{" "}
+            {record.processingMinutes != null
+              ? `${record.processingMinutes} phút`
+              : "—"}
+          </p>
+        </Col>
+        <Col xs={24} md={12}>
+          <p>
+            <strong>Phân loại lỗi:</strong>{" "}
+            {record.errorClassification
+              ? errorClassificationLabels[record.errorClassification] ||
+                record.errorClassification
+              : "—"}
+          </p>
+        </Col>
+        <Col xs={24} md={12}>
+          <p>
+            <strong>Phân loại xử lý:</strong>{" "}
+            {record.handlerClassification
+              ? handlerClassificationLabels[record.handlerClassification] ||
+                record.handlerClassification
+              : "—"}
+          </p>
+        </Col>
+      </Row>
+      <p>
+        <strong>Ghi chú hoàn thành:</strong>
+      </p>
+      <RichHtmlPreview
+        compact
+        html={record.completedNote ?? undefined}
+        title="Ghi chú hoàn thành"
+      />
+    </section>
+  );
+}
 
 const supportGroupConfig: Record<
   string,
@@ -283,11 +394,16 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
     record: undefined,
   });
   const [editForm] = Form.useForm();
+  const editTicketType = Form.useWatch("ticketType", editForm);
   const editEditorRef = useRef<any>(null); // Ref for TinyMCE editor
   const [note, setNote] = useState("");
   const [additionalNote, setAdditionalNote] = useState("");
   // Thêm state cho bộ lọc ngày
   const [dateRange, setDateRange] = useState<any>(null);
+  const [searchText, setSearchText] = useState("");
+  const [status, setStatus] = useState<string | undefined>();
+  const [type, setType] = useState<string | undefined>();
+  const [subType, setSubType] = useState<string | undefined>();
 
   const userStr = localStorage.getItem("user");
   const userObj = userStr ? JSON.parse(userStr) : {};
@@ -320,16 +436,24 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
     const filterObj: any = {
       usercode: userObj?.maNV || "",
     };
+    if (searchText.trim()) filterObj.keyword = searchText.trim();
     if (dateRange && dateRange.length === 2) {
       filterObj.fromDate = dateRange[0].format("YYYY-MM-DD");
       filterObj.toDate = dateRange[1].format("YYYY-MM-DD");
     }
+    if (status !== undefined) filterObj.status = status;
+    if (type) filterObj.type = type;
+    if (subType) filterObj.subType = subType;
     fetchData(1, pagination.pageSize, filterObj);
   };
 
   // Xử lý khi xóa bộ lọc
   const handleClearFilter = () => {
     setDateRange(null);
+    setSearchText("");
+    setStatus(undefined);
+    setType(undefined);
+    setSubType(undefined);
     fetchData(1, pagination.pageSize, {
       usercode: userObj?.maNV || "",
     });
@@ -570,8 +694,22 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
       key: "ticketType",
       width: 40,
       ellipsis: true,
-      render: (status: string) => (
-        <text color={"default"}>{typeConfig[status]?.text || status}</text>
+      render: (ticketType: string) => (
+        <span>{getTicketTypeLabel(ticketType)}</span>
+      ),
+    },
+    {
+      title: "Hạng mục hỗ trợ",
+      dataIndex: "ticketSubType",
+      key: "ticketSubType",
+      width: 60,
+      ellipsis: true,
+      render: (ticketSubType: string | null, record: TicketLog) => (
+        <span>
+          {ticketSubType
+            ? getTicketSubTypeLabel(ticketSubType, record.ticketType)
+            : "-"}
+        </span>
       ),
     },
     {
@@ -612,12 +750,24 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
         const canAddNote =
           record.ticketStatus === 1 &&
           userObj?.maNV === record.userAssigneeCode;
+        const completedNoteExcerpt = getRichTextExcerpt(record.completedNote);
+        const noteOverview = record.completedNote ? completedNoteExcerpt : value;
+        const completedNoteHasImage = /<img\b/i.test(record.completedNote || "");
 
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ whiteSpace: "pre-wrap" }}>
-              {value || <span style={{ color: "#aaa" }}>-</span>}
-            </span>
+            <div className="ticket-note-overview">
+              {noteOverview ? (
+                <span style={{ whiteSpace: "pre-wrap" }}>{noteOverview}</span>
+              ) : !completedNoteHasImage ? (
+                <span style={{ color: "#aaa" }}>-</span>
+              ) : null}
+              {completedNoteHasImage && (
+                <Tooltip title="Ghi chú hoàn thành có hình ảnh">
+                  <PictureOutlined className="ticket-note-image-icon" />
+                </Tooltip>
+              )}
+            </div>
             {canAddNote && (
               <Button
                 type="link"
@@ -664,7 +814,12 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={4}>
-            <Input placeholder="Mã ticket, tiêu đề..." allowClear />
+            <Input
+              placeholder="Mã ticket, tiêu đề..."
+              allowClear
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+            />
           </Col>
           <Col xs={24} sm={12} md={4}>
             <DatePicker.RangePicker
@@ -676,8 +831,13 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
             />
           </Col>
           <Col xs={24} sm={12} md={4}>
-            <Select defaultValue="all" style={{ width: "100%" }}>
-              <Option value="all">Tất cả</Option>
+            <Select
+              allowClear
+              placeholder="Trạng thái"
+              value={status}
+              style={{ width: "100%" }}
+              onChange={setStatus}
+            >
               <Option value="0">Chờ tiếp nhận</Option>
               <Option value="1">Đang xử lý</Option>
               <Option value="2">Hoàn tất</Option>
@@ -685,11 +845,27 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
             </Select>
           </Col>
           <Col xs={24} sm={12} md={4}>
-            <Select defaultValue="all" style={{ width: "100%" }}>
-              <Option value="SOFT">Hỗ trợ phần mềm</Option>
-              <Option value="HARD">Hỗ trợ phần cứng</Option>
-              <Option value="SAP">SAP</Option>
-            </Select>
+            <Select
+              allowClear
+              options={TICKET_TYPE_OPTIONS}
+              placeholder="Loại yêu cầu"
+              value={type}
+              style={{ width: "100%" }}
+              onChange={(value) => {
+                setType(value);
+                setSubType(undefined);
+              }}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={4}>
+            <Select
+              allowClear
+              options={getTicketSubTypeOptions(type)}
+              placeholder="Hạng mục hỗ trợ"
+              value={subType}
+              style={{ width: "100%" }}
+              onChange={setSubType}
+            />
           </Col>
 
           <Col>
@@ -728,7 +904,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
           scroll={{ x: "max-content", y: 500 }}
           summary={() => (
             <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={12} align="right">
+              <Table.Summary.Cell index={0} colSpan={13} align="right">
                 <span style={{ fontWeight: 500 }}>
                   Tổng: {pagination.total} ticket
                 </span>
@@ -762,11 +938,34 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
             name="ticketType"
             rules={[{ required: true, message: "Chọn loại yêu cầu" }]}
           >
-            <Select>
-              <Option value="SOFT">Hỗ trợ phần mềm</Option>
-              <Option value="HARD">Hỗ trợ phần cứng</Option>
-              <Option value="SAP">SAP</Option>
+            <Select
+              onChange={() =>
+                editForm.setFieldValue("ticketSubType", undefined)
+              }
+            >
+              {TICKET_TYPE_OPTIONS.map((option) => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
             </Select>
+          </Form.Item>
+          <Form.Item
+            label="Hạng mục hỗ trợ"
+            name="ticketSubType"
+            dependencies={["ticketType"]}
+            rules={[
+              {
+                required: getTicketSubTypeOptions(editTicketType).length > 0,
+                message: "Chọn hạng mục hỗ trợ",
+              },
+            ]}
+          >
+            <Select
+              allowClear
+              options={getTicketSubTypeOptions(editTicketType)}
+              placeholder="Chọn hạng mục hỗ trợ"
+            />
           </Form.Item>
           <Form.Item
             label="Nội dung yêu cầu"
@@ -938,8 +1137,12 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
                 </p>
               </Col>
             </Row>
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={12}>
+            <Row
+              className="ticket-detail-summary-row"
+              gutter={[16, 8]}
+              style={{ marginBottom: 16 }}
+            >
+              <Col xs={24} md={8}>
                 <p>
                   <strong>Loại yêu cầu:</strong>{" "}
                   <Tag color={typeConfig[viewModal.record.ticketType]?.color}>
@@ -947,7 +1150,18 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
                   </Tag>
                 </p>
               </Col>
-              <Col span={12}>
+              <Col xs={24} md={8}>
+                <p>
+                  <strong>Hạng mục hỗ trợ:</strong>{" "}
+                  {viewModal.record.ticketSubType
+                    ? getTicketSubTypeLabel(
+                        viewModal.record.ticketSubType,
+                        viewModal.record.ticketType,
+                      )
+                    : "-"}
+                </p>
+              </Col>
+              <Col xs={24} md={8}>
                 <p>
                   <strong>Ngày tạo:</strong>{" "}
                   {viewModal.record.createdAt
@@ -1004,6 +1218,7 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
                 </Col>
               </Row>
             )}
+            <CompletionInformation record={viewModal.record} />
           </div>
         )}
       </Modal>
@@ -1048,6 +1263,7 @@ function CreateTicketTab({
 }) {
   const dispatch = useDispatch();
   const [form] = Form.useForm();
+  const createTicketType = Form.useWatch("type", form);
   const [fileList, setFileList] = useState([]);
   const editorRef = useRef<any>(null); // <- khai báo editorRef
 
@@ -1070,6 +1286,7 @@ function CreateTicketTab({
       const payload = {
         ticketTitle: values.title || "",
         ticketType: values.type || "",
+        ticketSubType: values.subType || null,
         ticketContent: html || "", // nội dung rich text
         uploadedFile: fileList?.length > 0 ? fileList[0] : null, // 1 file
         userCode: userObj.maNV || "",
@@ -1117,7 +1334,7 @@ function CreateTicketTab({
             initialValues={{}}
           >
             <Row gutter={16}>
-              <Col span={12} xs={24} sm={24} md={12}>
+              <Col xs={24} md={8}>
                 <Form.Item
                   label="Tiêu đề yêu cầu"
                   name="title"
@@ -1126,7 +1343,7 @@ function CreateTicketTab({
                   <Input placeholder="Nhập tiêu đề" />
                 </Form.Item>
               </Col>
-              <Col span={12} xs={24} sm={24} md={12}>
+              <Col xs={24} md={8}>
                 <Form.Item
                   label="Loại yêu cầu"
                   name="type"
@@ -1134,11 +1351,36 @@ function CreateTicketTab({
                     { required: true, message: "Vui lòng chọn loại yêu cầu" },
                   ]}
                 >
-                  <Select placeholder="Chọn loại yêu cầu">
-                    <Option value="SOFT">Hỗ trợ phần mềm</Option>
-                    <Option value="HARD">Hỗ trợ phần cứng</Option>
-                    <Option value="SAP">SAP</Option>
+                  <Select
+                    placeholder="Chọn loại yêu cầu"
+                    onChange={() => form.setFieldValue("subType", undefined)}
+                  >
+                    {TICKET_TYPE_OPTIONS.map((option) => (
+                      <Option key={option.value} value={option.value}>
+                        {option.label}
+                      </Option>
+                    ))}
                   </Select>
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Hạng mục hỗ trợ"
+                  name="subType"
+                  dependencies={["type"]}
+                  rules={[
+                    {
+                      required:
+                        getTicketSubTypeOptions(createTicketType).length > 0,
+                      message: "Vui lòng chọn hạng mục hỗ trợ",
+                    },
+                  ]}
+                >
+                  <Select
+                    allowClear
+                    options={getTicketSubTypeOptions(createTicketType)}
+                    placeholder="Chọn hạng mục hỗ trợ"
+                  />
                 </Form.Item>
               </Col>
             </Row>
@@ -1324,9 +1566,14 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   const [searchText, setSearchText] = useState("");
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
+  const [subType, setSubType] = useState("all");
   const [note, setNote] = useState(""); // ✅ state để lưu nội dung ghi chú
   const [additionalNote, setAdditionalNote] = useState("");
   const [onlyMyTicket, setOnlyMyTicket] = useState(false);
+  const [completeForm] = Form.useForm<CompleteTicketFormValues>();
+  const completeEditorRef = useRef<TinyMceEditor | null>(null);
+  const [processingMinutesEdited, setProcessingMinutesEdited] = useState(false);
+  const [completeSubmitting, setCompleteSubmitting] = useState(false);
 
   const userStr = localStorage.getItem("user");
   const userObj = userStr ? JSON.parse(userStr) : {};
@@ -1417,6 +1664,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     }
     if (status !== "all") filterObj.status = status;
     if (type !== "all") filterObj.type = type;
+    if (subType !== "all") filterObj.subType = subType;
     if (onlyMyTicket) filterObj.userAssigneeCode = userObj?.maNV;
     // Lưu filter vào Redux để component cha dùng export
     if (filterObj && Object.keys(filterObj).length > 0)
@@ -1448,6 +1696,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     dateRange,
     status,
     type,
+    subType,
     onlyMyTicket,
     pagination.current,
     pagination.pageSize,
@@ -1496,38 +1745,71 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
   const handleComplete = (record: any) => {
     setCompleteModal({ open: true, record });
   };
-  const handleCompleteFinish = async () => {
-    try {
-      const record = completeModal.record;
-      const newNoteText = note.trim() || "hoàn thành!";
-      const latestNote = newNoteText;
 
-      // ✅ Gọi API "Hoàn tất ticket"
+  const initializeCompleteForm = () => {
+    setProcessingMinutesEdited(false);
+    completeForm.setFieldsValue({
+      completedNote: "",
+      processingMinutes: getElapsedProcessingMinutes(
+        completeModal.record?.receivedAt,
+      ),
+      errorClassification: "OLD",
+      handlerClassification: "IT",
+    });
+  };
+
+  const closeCompleteModal = () => {
+    if (completeSubmitting) return;
+    setCompleteModal({ open: false, record: undefined });
+    setProcessingMinutesEdited(false);
+    completeEditorRef.current = null;
+    completeForm.resetFields();
+  };
+
+  const handleCompleteFinish = async (values: CompleteTicketFormValues) => {
+    const record = completeModal.record;
+    if (!record || completeSubmitting) return;
+
+    setCompleteSubmitting(true);
+    try {
+      await completeEditorRef.current?.uploadImages();
+
+      const completedNote =
+        completeEditorRef.current?.getContent().trim() ||
+        values.completedNote.trim();
+      if (!hasMeaningfulRichContent(completedNote)) {
+        message.error("Vui lòng nhập ghi chú hoàn thành hoặc chèn ít nhất một ảnh!");
+        return;
+      }
+      if (completedNote.length > MAX_COMPLETED_NOTE_LENGTH) {
+        message.error("Ghi chú hoàn thành không được vượt quá 100.000 ký tự!");
+        return;
+      }
+
+      const automaticMinutes = getElapsedProcessingMinutes(record.receivedAt);
+      const processingMinutes = processingMinutesEdited
+        ? values.processingMinutes
+        : automaticMinutes ?? values.processingMinutes;
+
       await ticketLogApi.completeTicket(record.ticketId, {
-        note: latestNote,
+        completedNote,
+        processingMinutes,
+        errorClassification: values.errorClassification,
+        handlerClassification: values.handlerClassification,
       });
 
       setCompleteModal({ open: false, record: undefined });
-      setNote("");
-      message.success("Ticket đã được hoàn tất!");
+      setProcessingMinutesEdited(false);
+      completeEditorRef.current = null;
+      completeForm.resetFields();
+      message.success("Ticket đã được hoàn thành!");
 
-      setData((prev) =>
-        prev.map((item) =>
-          item.ticketId === record.ticketId
-            ? {
-                ...item,
-                note: latestNote,
-                approvedAt: new Date().toISOString(),
-              }
-            : item,
-        ),
-      );
-
-      // ✅ Reload lại data từ server để cập nhật đúng trạng thái và nút thao tác
       await fetchData(pagination.current, pagination.pageSize, filters);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Lỗi hoàn tất ticket:", error);
       message.error("Không thể hoàn tất ticket. Vui lòng thử lại!");
+    } finally {
+      setCompleteSubmitting(false);
     }
   };
 
@@ -1592,6 +1874,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
     setDateRange(null);
     setStatus("all");
     setType("all");
+    setSubType("all");
     setOnlyMyTicket(false);
     const filterObj: any = {};
     dispatch(clearTicketFilter());
@@ -1808,8 +2091,22 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
       key: "ticketType",
       width: 40,
       ellipsis: true,
-      render: (status: string) => (
-        <text color={"default"}>{typeConfig[status]?.text || status}</text>
+      render: (ticketType: string) => (
+        <span>{getTicketTypeLabel(ticketType)}</span>
+      ),
+    },
+    {
+      title: "Hạng mục hỗ trợ",
+      dataIndex: "ticketSubType",
+      key: "ticketSubType",
+      width: 60,
+      ellipsis: true,
+      render: (ticketSubType: string | null, record: TicketLog) => (
+        <span>
+          {ticketSubType
+            ? getTicketSubTypeLabel(ticketSubType, record.ticketType)
+            : "-"}
+        </span>
       ),
     },
     {
@@ -1850,12 +2147,24 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
         const canAddNote =
           record.ticketStatus === 1 &&
           userObj?.maNV === record.userAssigneeCode;
+        const completedNoteExcerpt = getRichTextExcerpt(record.completedNote);
+        const noteOverview = record.completedNote ? completedNoteExcerpt : value;
+        const completedNoteHasImage = /<img\b/i.test(record.completedNote || "");
 
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ whiteSpace: "pre-wrap" }}>
-              {value || <span style={{ color: "#aaa" }}>-</span>}
-            </span>
+            <div className="ticket-note-overview">
+              {noteOverview ? (
+                <span style={{ whiteSpace: "pre-wrap" }}>{noteOverview}</span>
+              ) : !completedNoteHasImage ? (
+                <span style={{ color: "#aaa" }}>-</span>
+              ) : null}
+              {completedNoteHasImage && (
+                <Tooltip title="Ghi chú hoàn thành có hình ảnh">
+                  <PictureOutlined className="ticket-note-image-icon" />
+                </Tooltip>
+              )}
+            </div>
             {canAddNote && (
               <Button
                 type="link"
@@ -1932,11 +2241,34 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
             </Select>
           </Col>
           <Col xs={24} sm={12} md={4}>
-            <Select value={type} style={{ width: "100%" }} onChange={setType}>
+            <Select
+              value={type}
+              style={{ width: "100%" }}
+              onChange={(value) => {
+                setType(value);
+                setSubType("all");
+              }}
+            >
               <Option value="all">Tất cả</Option>
-              <Option value="SOFT">Hỗ trợ phần mềm</Option>
-              <Option value="HARD">Hỗ trợ phần cứng</Option>
-              <Option value="SAP">SAP</Option>
+              {TICKET_TYPE_OPTIONS.map((option) => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={4}>
+            <Select
+              value={subType}
+              style={{ width: "100%" }}
+              onChange={setSubType}
+            >
+              <Option value="all">Tất cả hạng mục</Option>
+              {getTicketSubTypeOptions(type).map((option) => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
             </Select>
           </Col>
           <Col>
@@ -1988,7 +2320,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
           scroll={{ x: 1500, y: 600 }}
           summary={() => (
             <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={11} align="right">
+              <Table.Summary.Cell index={0} colSpan={12} align="right">
                 <span style={{ fontWeight: 500 }}>
                   Tổng: {pagination.total} ticket
                 </span>
@@ -2020,33 +2352,144 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
         </p>
       </Modal>
       <Modal
-        open={completeModal.open}
-        title="Xác nhận hoàn tất ticket"
-        onCancel={() => setCompleteModal({ open: false, record: undefined })}
+        afterOpenChange={(open) => {
+          if (open) initializeCompleteForm();
+        }}
+        centered
+        className="complete-ticket-modal"
+        closable={!completeSubmitting}
+        destroyOnClose
         footer={[
           <Button
             key="cancel"
-            onClick={() => setCompleteModal({ open: false, record: undefined })}
+            disabled={completeSubmitting}
+            onClick={closeCompleteModal}
           >
             Hủy
           </Button>,
-          <Button key="ok" type="primary" onClick={handleCompleteFinish}>
-            Xác nhận hoàn tất
+          <Button
+            key="ok"
+            loading={completeSubmitting}
+            onClick={() => completeForm.submit()}
+            type="primary"
+          >
+            Xác nhận hoàn thành
           </Button>,
         ]}
-        destroyOnClose
+        keyboard={!completeSubmitting}
+        maskClosable={!completeSubmitting}
+        onCancel={closeCompleteModal}
+        open={completeModal.open}
+        title="Xác nhận hoàn tất ticket"
+        width={1000}
       >
-        <p>Bạn có chắc chắn muốn xác nhận hoàn tất ticket này?</p>
-        <p>
-          <b>{completeModal.record?.title}</b>
-        </p>
-        {/* ✅ Ô nhập ghi chú */}
-        <Input.TextArea
-          rows={3}
-          placeholder="Nhập ghi chú hoàn tất (bắt buộc)"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
+        <Form
+          disabled={completeSubmitting}
+          form={completeForm}
+          layout="vertical"
+          onFinish={handleCompleteFinish}
+          requiredMark
+        >
+          <Form.Item
+            getValueFromEvent={(content) => content}
+            label="Ghi chú hoàn tất"
+            name="completedNote"
+            rules={[
+              {
+                validator: async (_, value: string) => {
+                  if (value?.length > MAX_COMPLETED_NOTE_LENGTH) {
+                    throw new Error(
+                      "Ghi chú hoàn thành không được vượt quá 100.000 ký tự",
+                    );
+                  }
+                  if (hasMeaningfulRichContent(value)) return;
+                  throw new Error(
+                    "Vui lòng nhập ghi chú hoàn thành hoặc chèn ít nhất một ảnh",
+                  );
+                },
+              },
+            ]}
+            trigger="onEditorChange"
+          >
+            <Editor
+              onInit={(_evt, editor) => {
+                completeEditorRef.current = editor;
+              }}
+              init={{
+                height: 320,
+                skin_url: "/tinymce/skins/ui/oxide",
+                content_css: "/tinymce/skins/content/default/content.min.css",
+                language: "vi",
+                plugins: "link image table lists code",
+                toolbar:
+                  "undo redo | bold italic | alignleft aligncenter alignright | image | code",
+                paste_data_images: true,
+                automatic_uploads: true,
+                convert_urls: false,
+                relative_urls: false,
+                remove_script_host: false,
+                images_upload_url: UploadApi.postLinkImages,
+                images_file_types: "jpg,jpeg,png,gif,webp",
+                branding: false,
+                menubar: true,
+                placeholder:
+                  "Nhập nội dung ghi chú. Bạn có thể chèn văn bản, hình ảnh và định dạng trực tiếp tại đây...",
+              }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Thời gian xử lý"
+            name="processingMinutes"
+            rules={[
+              { required: true, message: "Vui lòng nhập thời gian xử lý" },
+              { type: "integer", message: "Thời gian phải là số phút nguyên" },
+              { type: "number", min: 1, message: "Thời gian phải từ 1 phút" },
+            ]}
+          >
+            <InputNumber
+              addonAfter="phút"
+              min={1}
+              onChange={() => setProcessingMinutesEdited(true)}
+              precision={0}
+              placeholder="Nhập số phút"
+              style={{ width: 260 }}
+            />
+          </Form.Item>
+
+          <Row className="complete-ticket-classifications" gutter={[32, 16]}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Phân loại lỗi"
+                name="errorClassification"
+                rules={[{ required: true, message: "Vui lòng phân loại lỗi" }]}
+              >
+                <Radio.Group>
+                  <Space direction="vertical">
+                    <Radio value="OLD">Lỗi cũ (đã từng xảy ra)</Radio>
+                    <Radio value="NEW">Lỗi mới (lần đầu phát sinh)</Radio>
+                  </Space>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Phân loại xử lý"
+                name="handlerClassification"
+                rules={[
+                  { required: true, message: "Vui lòng phân loại xử lý" },
+                ]}
+              >
+                <Radio.Group>
+                  <Space direction="vertical">
+                    <Radio value="IT">IT xử lý</Radio>
+                    <Radio value="NT">NT xử lý</Radio>
+                  </Space>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
       </Modal>
       {/* Modal Xóa / Hủy ticket (dùng chung như MyTicketsTab) */}
       <Modal
@@ -2214,8 +2657,12 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                 </p>
               </Col>
             </Row>
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={12}>
+            <Row
+              className="ticket-detail-summary-row"
+              gutter={[16, 8]}
+              style={{ marginBottom: 16 }}
+            >
+              <Col xs={24} md={8}>
                 <p>
                   <strong>Loại yêu cầu:</strong>{" "}
                   <Tag color={typeConfig[viewModal.record.ticketType]?.color}>
@@ -2223,7 +2670,18 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                   </Tag>
                 </p>
               </Col>
-              <Col span={12}>
+              <Col xs={24} md={8}>
+                <p>
+                  <strong>Hạng mục hỗ trợ:</strong>{" "}
+                  {viewModal.record.ticketSubType
+                    ? getTicketSubTypeLabel(
+                        viewModal.record.ticketSubType,
+                        viewModal.record.ticketType,
+                      )
+                    : "-"}
+                </p>
+              </Col>
+              <Col xs={24} md={8}>
                 <p>
                   <strong>Ngày tạo:</strong>{" "}
                   {viewModal.record.createdAt
@@ -2281,6 +2739,7 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                 </Col>
               </Row>
             )}
+            <CompletionInformation record={viewModal.record} />
           </div>
         )}
       </Modal>

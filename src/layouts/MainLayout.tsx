@@ -53,6 +53,7 @@ const MainLayout = () => {
       const payload = {
         ticketTitle: values.title || "",
         ticketType: values.type || "",
+        ticketSubType: values.subType || null,
         ticketContent: html || "",
         uploadedFile: fileList.length > 0 ? fileList[0] : null,
         userCode: userObj.maNV || "",

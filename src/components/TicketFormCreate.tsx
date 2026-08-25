@@ -2,6 +2,10 @@ import { Form, Input, Select, Button, Upload } from "antd";
 import { PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import { Editor } from "@tinymce/tinymce-react";
 import { UploadApi } from "../services/UploadApi";
+import {
+  getTicketSubTypeOptions,
+  TICKET_TYPE_OPTIONS,
+} from "../utils/configs/ticketClassification";
 
 const { Option } = Select;
 
@@ -22,6 +26,7 @@ export default function TicketForm({
   editorRef,
   loading = false,
 }: TicketFormProps) {
+  const ticketType = Form.useWatch("type", form);
   const handleUploadChange = ({ fileList }: any) => setFileList(fileList);
 
   return (
@@ -42,11 +47,35 @@ export default function TicketForm({
             name="type"
             rules={[{ required: true, message: "Vui lòng chọn loại yêu cầu" }]}
           >
-            <Select placeholder="Chọn loại yêu cầu">
-              <Option value="SOFT">Hỗ trợ phần mềm</Option>
-              <Option value="HARD">Hỗ trợ phần cứng</Option>
-              <Option value="SAP">SAP</Option>
+            <Select
+              placeholder="Chọn nhóm yêu cầu"
+              onChange={() => form.setFieldValue("subType", undefined)}
+            >
+              {TICKET_TYPE_OPTIONS.map((option) => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
             </Select>
+          </Form.Item>
+        </div>
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <Form.Item
+            label="Hạng mục hỗ trợ"
+            name="subType"
+            dependencies={["type"]}
+            rules={[
+              {
+                required: getTicketSubTypeOptions(ticketType).length > 0,
+                message: "Vui lòng chọn hạng mục hỗ trợ",
+              },
+            ]}
+          >
+            <Select
+              allowClear
+              options={getTicketSubTypeOptions(ticketType)}
+              placeholder="Chọn hạng mục hỗ trợ"
+            />
           </Form.Item>
         </div>
       </div>

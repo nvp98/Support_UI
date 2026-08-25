@@ -1,4 +1,8 @@
-import type { PagedResponse, TicketLog } from "../models/ticketLog";
+import type {
+  CompleteTicketRequest,
+  PagedResponse,
+  TicketLog,
+} from "../models/ticketLog";
 import apiService from "./ApiService";
 
 // config sample
@@ -14,6 +18,7 @@ export const ticketLogApi = {
       fromDate?: string; // yyyy-MM-dd
       toDate?: string; // yyyy-MM-dd
       type?: string;
+      subType?: string;
       userAssigneeCode?: string;
     } = {},
   ) => {
@@ -29,6 +34,7 @@ export const ticketLogApi = {
       ...(filters.toDate && { toDate: filters.toDate }),
       ...(filters.usercode && { usercode: filters.usercode }),
       ...(filters.type && { type: filters.type }),
+      ...(filters.subType && { subType: filters.subType }),
       ...(filters.userAssigneeCode && {
         userAssigneeCode: filters.userAssigneeCode,
       }),
@@ -55,8 +61,8 @@ export const ticketLogApi = {
     }),
 
   // PUT: cập nhật hoàn tất ticket
-  completeTicket: (id: number, data: any) =>
-    apiService.put(`/api/TicketLogs/completed/${id}`, data, {
+  completeTicket: (id: number, data: CompleteTicketRequest) =>
+    apiService.put<TicketLog>(`/api/TicketLogs/completed/${id}`, data, {
       headers: { "Content-Type": "application/json" },
     }),
 
