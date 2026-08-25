@@ -15,9 +15,9 @@ export type TicketSubType =
   | "OTHER_HARDWARE";
 
 export interface CompleteTicketRequest {
-  completedNote: string;
+  completedNote?: string;
   processingMinutes: number;
-  errorClassification: TicketErrorClassification;
+  errorClassification?: TicketErrorClassification;
   handlerClassification: TicketHandlerClassification;
 }
 
