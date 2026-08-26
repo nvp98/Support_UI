@@ -207,14 +207,21 @@ const getRichTextExcerpt = (html?: string | null, maxLength = 120) => {
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
 };
 
-function CompletionInformation({ record }: { record: Partial<TicketLog> }) {
+function CompletionInformation({
+  record,
+  showAdminInformation,
+}: {
+  record: Partial<TicketLog>;
+  showAdminInformation: boolean;
+}) {
   const hasCompletionInformation =
     Number(record.ticketStatus) === 2 ||
     Boolean(
       record.completedNote ||
-        record.processingMinutes ||
-        record.errorClassification ||
-        record.handlerClassification,
+        (showAdminInformation &&
+          (record.processingMinutes ||
+            record.errorClassification ||
+            record.handlerClassification)),
     );
 
   if (!hasCompletionInformation) return null;
@@ -222,32 +229,39 @@ function CompletionInformation({ record }: { record: Partial<TicketLog> }) {
   return (
     <section className="ticket-completion-information">
       <Row gutter={[16, 12]} className="ticket-completion-metadata">
-        <Col span={24}>
-          <p>
-            <strong>Thời gian xử lý:</strong>{" "}
-            {record.processingMinutes != null
-              ? `${record.processingMinutes} phút`
-              : "—"}
-          </p>
-        </Col>
-        <Col xs={24} md={12}>
-          <p>
-            <strong>Phân loại lỗi:</strong>{" "}
-            {record.errorClassification
-              ? errorClassificationLabels[record.errorClassification] ||
-                record.errorClassification
-              : "—"}
-          </p>
-        </Col>
-        <Col xs={24} md={12}>
-          <p>
-            <strong>Phân loại xử lý:</strong>{" "}
-            {record.handlerClassification
-              ? handlerClassificationLabels[record.handlerClassification] ||
-                record.handlerClassification
-              : "—"}
-          </p>
-        </Col>
+        {showAdminInformation && (
+          <Col span={24}>
+            <p>
+              <strong>Thời gian xử lý:</strong>{" "}
+              {record.processingMinutes != null
+                ? `${record.processingMinutes} phút`
+                : "—"}
+            </p>
+          </Col>
+        )}
+        {showAdminInformation && (
+          <>
+            <Col xs={24} md={12}>
+              <p>
+                <strong>Phân loại lỗi:</strong>{" "}
+                {record.errorClassification
+                  ? errorClassificationLabels[record.errorClassification] ||
+                    record.errorClassification
+                  : "—"}
+              </p>
+            </Col>
+            <Col xs={24} md={12}>
+              <p>
+                <strong>Phân loại xử lý:</strong>{" "}
+                {record.handlerClassification
+                  ? handlerClassificationLabels[
+                      record.handlerClassification
+                    ] || record.handlerClassification
+                  : "—"}
+              </p>
+            </Col>
+          </>
+        )}
       </Row>
       <p>
         <strong>Ghi chú hoàn thành:</strong>
@@ -1211,7 +1225,10 @@ function MyTicketsTab({ activeTab }: { activeTab: string }) {
                 </Col>
               </Row>
             )}
-            <CompletionInformation record={viewModal.record} />
+            <CompletionInformation
+              record={viewModal.record}
+              showAdminInformation={userObj.role === "admin"}
+            />
           </div>
         )}
       </Modal>
@@ -1326,16 +1343,14 @@ function CreateTicketTab({
             onFinish={handleFinish}
             initialValues={{}}
           >
+            <Form.Item
+              label="Tiêu đề yêu cầu"
+              name="title"
+              rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}
+            >
+              <Input placeholder="Nhập tiêu đề" />
+            </Form.Item>
             <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Tiêu đề yêu cầu"
-                  name="title"
-                  rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}
-                >
-                  <Input placeholder="Nhập tiêu đề" />
-                </Form.Item>
-              </Col>
               <Col xs={24} md={8}>
                 <Form.Item
                   label="Loại yêu cầu"
@@ -1376,16 +1391,21 @@ function CreateTicketTab({
                   />
                 </Form.Item>
               </Col>
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Thông tin liên hệ"
+                  name="contact"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Vui lòng điền thông tin liên hệ",
+                    },
+                  ]}
+                >
+                  <Input placeholder="Số điện thoại hoặc email liên hệ" />
+                </Form.Item>
+              </Col>
             </Row>
-            <Form.Item
-              label="Thông tin liên hệ"
-              name="contact"
-              rules={[
-                { required: true, message: "Vui lòng điền thông tin liên hệ" },
-              ]}
-            >
-              <Input placeholder="Số điện thoại hoặc email liên hệ để được hỗ trợ kịp thời" />
-            </Form.Item>
             <Form.Item
               label="Nội dung yêu cầu (* Gửi thêm Ultraview nếu cần hỗ trợ từ xa)"
               name="content"
@@ -2724,7 +2744,10 @@ function AllTicketsTab({ activeTab }: { activeTab: string }) {
                 </Col>
               </Row>
             )}
-            <CompletionInformation record={viewModal.record} />
+            <CompletionInformation
+              record={viewModal.record}
+              showAdminInformation={userObj.role === "admin"}
+            />
           </div>
         )}
       </Modal>

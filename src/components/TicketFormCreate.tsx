@@ -31,16 +31,14 @@ export default function TicketForm({
 
   return (
     <Form layout="vertical" form={form} onFinish={onFinish} initialValues={{}}>
+      <Form.Item
+        label="Tiêu đề yêu cầu"
+        name="title"
+        rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}
+      >
+        <Input placeholder="Nhập tiêu đề cần hỗ trợ" />
+      </Form.Item>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 260 }}>
-          <Form.Item
-            label="Tiêu đề yêu cầu"
-            name="title"
-            rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}
-          >
-            <Input placeholder="Nhập tiêu đề cần hỗ trợ" />
-          </Form.Item>
-        </div>
         <div style={{ flex: 1, minWidth: 260 }}>
           <Form.Item
             label="Loại yêu cầu"
@@ -76,6 +74,11 @@ export default function TicketForm({
               options={getTicketSubTypeOptions(ticketType)}
               placeholder="Chọn hạng mục hỗ trợ"
             />
+          </Form.Item>
+        </div>
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <Form.Item label="Thông tin liên hệ" name="contact">
+            <Input placeholder="Số điện thoại hoặc email liên hệ" />
           </Form.Item>
         </div>
       </div>
@@ -118,9 +121,6 @@ export default function TicketForm({
         <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
           Hỗ trợ file: PDF, DOC, DOCX, JPG, PNG, GIF (tối đa 10MB mỗi file)
         </div>
-      </Form.Item>
-      <Form.Item label="Thông tin liên hệ" name="contact">
-        <Input placeholder="Số điện thoại hoặc email liên hệ để được hỗ trợ kịp thời" />
       </Form.Item>
       <Form.Item style={{ textAlign: "right", marginBottom: 0 }}>
         <Button
