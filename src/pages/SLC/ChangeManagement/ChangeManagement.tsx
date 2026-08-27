@@ -784,7 +784,7 @@ export default function ChangeManagement() {
         title={<Space><span>{selected?.code}</span><Tag color={CR_STATUS_COLORS[selected?.status ?? 0]}>{CR_STATUS_LABELS[selected?.status ?? 0]}</Tag></Space>}
         open={showDetailDrawer}
         onClose={() => setShowDetailDrawer(false)}
-        width={680}
+        width="100vw"
         extra={selected && (
           <Space wrap>
             {hasAction(selected, "ADD_REVISION") && <Button onClick={() => setShowRevisionModal(true)}>+ Revision</Button>}
