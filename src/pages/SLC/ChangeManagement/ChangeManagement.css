@@ -13,3 +13,17 @@
   margin-top: 0.25rem;
   min-height: 180px;
 }
+
+.change-request-table .ant-checkbox-disabled .ant-checkbox-inner {
+  background: #fff;
+  border-color: #cbd5e1;
+}
+
+.change-request-table .ant-checkbox-disabled.ant-checkbox-checked .ant-checkbox-inner {
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+.change-request-table .ant-checkbox-disabled.ant-checkbox-checked .ant-checkbox-inner::after {
+  border-color: #fff;
+}

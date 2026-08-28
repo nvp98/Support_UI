@@ -193,6 +193,16 @@ export const changeRequestApi = {
   complete: (id: number, actor: { actorCode: string; actorName: string }) =>
     ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest/${id}/complete`, actor),
 
+  markAsDeployed: (
+    id: number,
+    data: { actorCode: string; actorName: string; isMarked: boolean },
+  ) => ApiService.put<ChangeRequest>(`${BASE}/ChangeRequest/${id}/mark-deployed`, data),
+
+  markAsChecked: (
+    id: number,
+    data: { actorCode: string; actorName: string; isMarked: boolean },
+  ) => ApiService.put<ChangeRequest>(`${BASE}/ChangeRequest/${id}/mark-checked`, data),
+
   addRevision: (id: number, data: Partial<ChangeRevision> & { actorCode: string; actorName: string }) =>
     ApiService.post<ChangeRevision>(`${BASE}/ChangeRequest/${id}/revisions`, data),
 
