@@ -22,7 +22,9 @@ import {
   Timeline,
   Tooltip,
   Typography,
+  Upload,
 } from "antd";
+import type { UploadFile } from "antd";
 import {
   CheckCircleOutlined,
   DeleteOutlined,
@@ -33,6 +35,7 @@ import {
   ReloadOutlined,
   SendOutlined,
   StopOutlined,
+  UploadOutlined,
   UserAddOutlined,
 } from "@ant-design/icons";
 import { Editor, type IAllProps } from "@tinymce/tinymce-react";
@@ -66,12 +69,14 @@ import type { NhanVien } from "../../../models/eportal";
 import { changeRequestApi, moduleApi, projectApi } from "../../../services/slcApi";
 import { nhanVienApi } from "../../../services/EPortalApi";
 import { UploadApi } from "../../../services/UploadApi";
+import { buildFormData } from "../../../utils/configs/buildFormData";
 import RichHtmlPreview from "./RichHtmlPreview";
 import "./ChangeManagement.css";
 
 const { Search, TextArea } = Input;
 const { Option } = Select;
 const { Title, Text } = Typography;
+const BASE_API_URL = import.meta.env.VITE_BASE_API_URL;
 
 const RICH_TEXT_EDITOR_OPTIONS: NonNullable<IAllProps["init"]> = {
   height: 250,
@@ -118,6 +123,18 @@ const formatPerson = (name?: string, code?: string) =>
 
 const EMPLOYEE_SEARCH_DEBOUNCE_MS = 400;
 const EMPLOYEE_PAGE_SIZE = 150;
+const CR_PAGE_SIZE = 15;
+
+const belongsToActor = (cr: ChangeRequest, actorCode?: string) => Boolean(
+  actorCode && (cr.createdByCode === actorCode || cr.requestorCode === actorCode)
+);
+
+const getAttachmentName = (cr: ChangeRequest) => {
+  return cr.fileAttachments?.replace(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}_/i,
+    "",
+  ) || "Xem file đính kèm";
+};
 
 type EmployeeOption = Pick<NhanVien, "maNv" | "hoTen" | "tenPhongBan">;
 
@@ -126,6 +143,9 @@ export default function ChangeManagement() {
   const user = userData ? JSON.parse(userData) : {};
   const actorCode = user.maNV;
   const actorName = user.hoTen;
+  const slcRoles: string[] = Array.isArray(user.slcRoles) ? user.slcRoles : [];
+  const isCrAdmin = slcRoles.includes("admin");
+  const isCrDeveloper = slcRoles.includes("developer");
   const [items, setItems] = useState<ChangeRequest[]>([]);
   const [projects, setProjects] = useState<SlcProject[]>([]);
   const [modules, setModules] = useState<SlcModule[]>([]);
@@ -140,6 +160,7 @@ export default function ChangeManagement() {
   const [statusFilter, setStatusFilter] = useState<number>();
   const [priorityFilter, setPriorityFilter] = useState<number>();
   const [projectFilter, setProjectFilter] = useState<number>();
+  const [myRequest, setMyRequest] = useState(false);
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
@@ -149,6 +170,7 @@ export default function ChangeManagement() {
   const [selected, setSelected] = useState<ChangeRequest | null>(null);
   const [editing, setEditing] = useState<ChangeRequest | null>(null);
   const [commandLoading, setCommandLoading] = useState(false);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
 
   const [form] = Form.useForm();
   const [revisionForm] = Form.useForm();
@@ -226,24 +248,40 @@ export default function ChangeManagement() {
         projectId: projectFilter,
         status: statusFilter,
         priority: priorityFilter,
+        myRequest,
         keyword: keyword || undefined,
         page,
-        pageSize: 15,
+        pageSize: CR_PAGE_SIZE,
       });
-      setItems(result.items);
-      setTotal(result.total);
+      if (isCrAdmin) {
+        setItems(result.items);
+        setTotal(result.total);
+      } else {
+        // Quyền Admin ticket không được dùng để mở rộng phạm vi xem CR.
+        // Chỉ role admin riêng của CR mới được xem toàn bộ danh sách.
+        const visibleItems = result.items.filter((item) =>
+          belongsToActor(item, actorCode) ||
+          (myRequest && item.developerCode === actorCode)
+        );
+        setItems(visibleItems);
+        setTotal(result.total);
+      }
     } catch (error: unknown) {
       message.error(asApiError(error).message ?? "Không tải được danh sách Change Request");
     } finally {
       setLoading(false);
     }
-  }, [actorCode, keyword, page, priorityFilter, projectFilter, statusFilter]);
+  }, [actorCode, isCrAdmin, keyword, myRequest, page, priorityFilter, projectFilter, statusFilter]);
 
   const reloadDetail = useCallback(async (id: number) => {
     const detail = await changeRequestApi.getById(id, actorCode);
+    if (!isCrAdmin && !belongsToActor(detail, actorCode)
+      && detail.developerCode !== actorCode) {
+      throw { status: 403, message: "Bạn không có quyền xem Change Request này." };
+    }
     setSelected(detail);
     return detail;
-  }, [actorCode]);
+  }, [actorCode, isCrAdmin]);
 
   useEffect(() => {
     loadProjects();
@@ -311,16 +349,18 @@ export default function ChangeManagement() {
         actorCode,
         actorName,
       };
+      const formData = buildFormData(payload, fileList);
       if (editing) {
-        await changeRequestApi.update(editing.id, payload);
+        await changeRequestApi.update(editing.id, formData);
         message.success("Cập nhật Change Request thành công");
       } else {
-        await changeRequestApi.create(payload);
+        await changeRequestApi.create(formData);
         message.success("Đã gửi Change Request");
       }
       setShowFormModal(false);
       setEditing(null);
       form.resetFields();
+      setFileList([]);
       clearFormEditorRefs();
       await load();
     } catch (error: unknown) {
@@ -330,6 +370,7 @@ export default function ChangeManagement() {
         setShowFormModal(false);
         setEditing(null);
         form.resetFields();
+        setFileList([]);
         clearFormEditorRefs();
         await load();
       } else {
@@ -342,8 +383,13 @@ export default function ChangeManagement() {
 
   const openEdit = async (cr: ChangeRequest) => {
     clearFormEditorRefs();
+    setFileList([]);
     try {
       const detail = await changeRequestApi.getById(cr.id, actorCode);
+      if (!isCrAdmin && !belongsToActor(detail, actorCode)
+        && detail.developerCode !== actorCode) {
+        throw { status: 403, message: "Bạn không có quyền sửa Change Request này." };
+      }
       setEditing(detail);
       form.setFieldsValue(detail);
       setPinnedEmployee(
@@ -377,6 +423,10 @@ export default function ChangeManagement() {
   };
 
   const confirmComplete = (cr: ChangeRequest) => {
+    if (!isCrDeveloper) {
+      message.error("Chỉ user có quyền Developer của CR mới được hoàn thành Change Request.");
+      return;
+    }
     Modal.confirm({
       title: "Xác nhận Change Request đã hoàn thành?",
       content: cr.impactTimeline
@@ -401,6 +451,12 @@ export default function ChangeManagement() {
 
   const handleAccept = async (values: { expectedCompletionDate: dayjs.Dayjs }) => {
     if (!accepting) return;
+    if (!isCrDeveloper) {
+      message.error("Chỉ user có quyền Developer của CR mới được tiếp nhận Change Request.");
+      setAccepting(null);
+      acceptForm.resetFields();
+      return;
+    }
     const cr = accepting;
     const succeeded = await runCommand(
       cr,
@@ -473,10 +529,10 @@ export default function ChangeManagement() {
 
   const actionButtons = (cr: ChangeRequest, compact = true) => (
     <Space size={compact ? 4 : 8} wrap>
-      {hasAction(cr, "ACCEPT") && commandButton("Tiếp nhận yêu cầu", <UserAddOutlined />, () => setAccepting(cr), compact)}
+      {isCrDeveloper && hasAction(cr, "ACCEPT") && commandButton("Tiếp nhận yêu cầu", <UserAddOutlined />, () => setAccepting(cr), compact)}
       {hasAction(cr, "APPROVE") && commandButton("Xác nhận yêu cầu", <CheckCircleOutlined />, () => confirmApprove(cr), compact)}
       {hasAction(cr, "REJECT") && commandButton("Từ chối yêu cầu", <StopOutlined />, () => setRejecting(cr), compact, true)}
-      {hasAction(cr, "COMPLETE") && commandButton("Xác nhận hoàn thành", <CheckCircleOutlined />, () => confirmComplete(cr), compact)}
+      {isCrDeveloper && hasAction(cr, "COMPLETE") && commandButton("Xác nhận hoàn thành", <CheckCircleOutlined />, () => confirmComplete(cr), compact)}
     </Space>
   );
 
@@ -543,6 +599,7 @@ export default function ChangeManagement() {
             setEditing(null);
             setPinnedEmployee(null);
             form.resetFields();
+            setFileList([]);
             setShowFormModal(true);
           }}>
             Tạo Change Request
@@ -569,6 +626,17 @@ export default function ChangeManagement() {
               {Object.entries(PRIORITY_LABELS).map(([key, value]) => <Option key={key} value={Number(key)}>{value}</Option>)}
             </Select>
           </Col>
+          <Col className="flex items-center">
+            <Checkbox
+              checked={myRequest}
+              onChange={(event) => {
+                setPage(1);
+                setMyRequest(event.target.checked);
+              }}
+            >
+              CR liên quan đến tôi
+            </Checkbox>
+          </Col>
         </Row>
       </Card>
 
@@ -586,9 +654,9 @@ export default function ChangeManagement() {
         title={editing ? "Sửa Change Request" : "Tạo Change Request mới"}
         open={showFormModal}
         confirmLoading={commandLoading}
-        onCancel={() => { setShowFormModal(false); setEditing(null); form.resetFields(); clearFormEditorRefs(); }}
+        onCancel={() => { setShowFormModal(false); setEditing(null); form.resetFields(); setFileList([]); clearFormEditorRefs(); }}
         footer={[
-          <Button key="cancel" onClick={() => { setShowFormModal(false); setEditing(null); form.resetFields(); clearFormEditorRefs(); }}>
+          <Button key="cancel" onClick={() => { setShowFormModal(false); setEditing(null); form.resetFields(); setFileList([]); clearFormEditorRefs(); }}>
             Hủy
           </Button>,
           editing ? (
@@ -686,6 +754,22 @@ export default function ChangeManagement() {
             />
           </Form.Item>
           <Form.Item name="reason" label="Lý do"><TextArea rows={2} /></Form.Item>
+          <Form.Item label="File đính kèm">
+            <Upload
+              fileList={fileList}
+              onChange={({ fileList: nextFileList }) => setFileList(nextFileList)}
+              beforeUpload={() => false}
+              maxCount={1}
+              accept=".pdf,.doc,.docx,.jpg,.png,.gif"
+            >
+              <Button icon={<UploadOutlined />}>Chọn file</Button>
+            </Upload>
+            {editing?.fileAttachments && fileList.length === 0 && (
+              <Text type="secondary" className="block mt-1">
+                File hiện tại: <a href={`${BASE_API_URL}/uploads/${editing.fileAttachments}`} target="_blank" rel="noreferrer">{getAttachmentName(editing)}</a>
+              </Text>
+            )}
+          </Form.Item>
           <Row gutter={12}>
             <Col span={8}>
               <Form.Item name="impactTimeline" label="Ảnh hưởng Timeline" valuePropName="checked" initialValue={false}><Checkbox>Có ảnh hưởng</Checkbox></Form.Item>
@@ -700,7 +784,7 @@ export default function ChangeManagement() {
         title={<Space><span>{selected?.code}</span><Tag color={CR_STATUS_COLORS[selected?.status ?? 0]}>{CR_STATUS_LABELS[selected?.status ?? 0]}</Tag></Space>}
         open={showDetailDrawer}
         onClose={() => setShowDetailDrawer(false)}
-        width={680}
+        width="100vw"
         extra={selected && (
           <Space wrap>
             {hasAction(selected, "ADD_REVISION") && <Button onClick={() => setShowRevisionModal(true)}>+ Revision</Button>}
@@ -747,6 +831,11 @@ export default function ChangeManagement() {
               <Descriptions.Item label="Hoàn thành lúc">{formatDateTime(selected.completedAt)}</Descriptions.Item>
               <Descriptions.Item label="Ảnh hưởng Timeline" span={2}>
                 {selected.impactTimeline ? <Tag color="red">{selected.impactDays > 0 ? "+" : ""}{selected.impactDays} ngày · {selected.impactVersion ?? "—"}</Tag> : <Tag>Không ảnh hưởng</Tag>}
+              </Descriptions.Item>
+              <Descriptions.Item label="File đính kèm" span={2}>
+                {selected.fileAttachments ? (
+                  <a href={`${BASE_API_URL}/uploads/${selected.fileAttachments}`} target="_blank" rel="noreferrer">{getAttachmentName(selected)}</a>
+                ) : "—"}
               </Descriptions.Item>
             </Descriptions>
             <Divider orientation="left">Nội dung trước thay đổi</Divider>

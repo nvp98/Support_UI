@@ -160,6 +160,7 @@ export const changeRequestApi = {
     status?: number;
     priority?: number;
     requestorCode?: string;
+    myRequest?: boolean;
     keyword?: string;
     fromDate?: string;
     toDate?: string;
@@ -170,11 +171,15 @@ export const changeRequestApi = {
   getById: (id: number, actorCode: string) =>
     ApiService.get<ChangeRequest>(`${BASE}/ChangeRequest/${id}`, { params: { actorCode } }),
 
-  create: (data: Partial<ChangeRequest> & { actorCode: string; actorName: string }) =>
-    ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest`, data),
+  create: (data: FormData) =>
+    ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest`, data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 
-  update: (id: number, data: Partial<ChangeRequest> & { actorCode: string; actorName: string }) =>
-    ApiService.put<ChangeRequest>(`${BASE}/ChangeRequest/${id}`, data),
+  update: (id: number, data: FormData) =>
+    ApiService.put<ChangeRequest>(`${BASE}/ChangeRequest/${id}`, data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 
   accept: (id: number, data: { actorCode: string; actorName: string; expectedCompletionDate: string }) =>
     ApiService.post<ChangeRequest>(`${BASE}/ChangeRequest/${id}/accept`, data),
