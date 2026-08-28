@@ -170,6 +170,7 @@ export default function ChangeManagement() {
   const [selected, setSelected] = useState<ChangeRequest | null>(null);
   const [editing, setEditing] = useState<ChangeRequest | null>(null);
   const [commandLoading, setCommandLoading] = useState(false);
+  const [markerLoading, setMarkerLoading] = useState<string>();
   const [fileList, setFileList] = useState<UploadFile[]>([]);
 
   const [form] = Form.useForm();
@@ -504,6 +505,41 @@ export default function ChangeManagement() {
     }
   };
 
+  const handleCompletionMarker = async (
+    cr: ChangeRequest,
+    marker: "developer" | "user",
+    isMarked: boolean,
+  ) => {
+    const action: ChangeRequestAction = marker === "developer"
+      ? "MARK_DEVELOPER_COMPLETED"
+      : "MARK_USER_COMPLETED";
+    if (!hasAction(cr, action)) return;
+
+    const loadingKey = `${marker}-${cr.id}`;
+    setMarkerLoading(loadingKey);
+    try {
+      const payload = { actorCode, actorName, isMarked };
+      if (marker === "developer") {
+        await changeRequestApi.markAsDeployed(cr.id, payload);
+      } else {
+        await changeRequestApi.markAsChecked(cr.id, payload);
+      }
+
+      const field = marker === "developer" ? "isDeployed" : "isChecked";
+      setItems((current) => current.map((item) =>
+        item.id === cr.id ? { ...item, [field]: isMarked } : item
+      ));
+      setSelected((current) => current?.id === cr.id ? { ...current, [field]: isMarked } : current);
+      message.success(isMarked ? "Đã cập nhật đánh dấu hoàn thành" : "Đã bỏ đánh dấu hoàn thành");
+    } catch (error: unknown) {
+      const apiError = asApiError(error);
+      message.error(apiError.message ?? "Không thể cập nhật đánh dấu hoàn thành");
+      await load();
+    } finally {
+      setMarkerLoading(undefined);
+    }
+  };
+
   const commandButton = (
     label: string,
     icon: ReactNode,
@@ -565,6 +601,48 @@ export default function ChangeManagement() {
     {
       title: "Ngày dự kiến", dataIndex: "expectedCompletionDate", key: "expected", width: 110,
       render: (value?: string) => formatDate(value),
+    },
+    {
+      title: "Đã triển khai",
+      dataIndex: "isDeployed",
+      key: "isDeployed",
+      width: 115,
+      align: "center" as const,
+      render: (checked: boolean, record: ChangeRequest) => {
+        const canChange = hasAction(record, "MARK_DEVELOPER_COMPLETED");
+        return (
+          <Tooltip title={canChange ? "Đánh dấu Dev đã triển khai xong" : "Chỉ Dev đang phụ trách mới được thay đổi"}>
+            <span>
+              <Checkbox
+                checked={checked}
+                disabled={!canChange || markerLoading === `developer-${record.id}`}
+                onChange={(event) => handleCompletionMarker(record, "developer", event.target.checked)}
+              />
+            </span>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: "Đã kiểm tra",
+      dataIndex: "isChecked",
+      key: "isChecked",
+      width: 105,
+      align: "center" as const,
+      render: (checked: boolean, record: ChangeRequest) => {
+        const canChange = hasAction(record, "MARK_USER_COMPLETED");
+        return (
+          <Tooltip title={canChange ? "Đánh dấu đã kiểm tra CR" : "Chỉ người yêu cầu hoặc người tạo mới được thay đổi"}>
+            <span>
+              <Checkbox
+                checked={checked}
+                disabled={!canChange || markerLoading === `user-${record.id}`}
+                onChange={(event) => handleCompletionMarker(record, "user", event.target.checked)}
+              />
+            </span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Rev", dataIndex: "currentRevision", key: "revision", width: 65,
@@ -646,7 +724,8 @@ export default function ChangeManagement() {
         rowKey="id"
         loading={loading}
         size="small"
-        scroll={{ x: 1180 }}
+        className="change-request-table"
+        scroll={{ x: 1420 }}
         pagination={{ total, current: page, pageSize: 15, onChange: setPage, showTotal: (count) => `${count} Change Request` }}
       />
 

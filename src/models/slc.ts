@@ -140,6 +140,8 @@ export interface ChangeRequest {
   approverName?: string;
   developerCode?: string;
   developerName?: string;
+  isDeployed: boolean;
+  isChecked: boolean;
   // 0=Bản nháp, 1=Chờ tiếp nhận, 2=Chờ xác nhận,
   // 3=Chờ hoàn thành, 4=Hoàn thành, 5=Từ chối
   status: number;
@@ -174,7 +176,9 @@ export type ChangeRequestAction =
   | 'ACCEPT'
   | 'APPROVE'
   | 'REJECT'
-  | 'COMPLETE';
+  | 'COMPLETE'
+  | 'MARK_DEVELOPER_COMPLETED'
+  | 'MARK_USER_COMPLETED';
 
 export interface ChangeRevision {
   id: number;
